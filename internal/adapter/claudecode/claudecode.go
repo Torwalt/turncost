@@ -1,0 +1,282 @@
+package claudecode
+
+import (
+	"bufio"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/Torwalt/turncost/internal/session"
+)
+
+const Harness = "claude-code"
+
+func DefaultRoot() string {
+	if dir := os.Getenv("CLAUDE_CONFIG_DIR"); dir != "" {
+		return filepath.Join(dir, "projects")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".claude", "projects")
+}
+
+func Discover(root string) ([]string, error) {
+	var paths []string
+	projects, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range projects {
+		if !p.IsDir() {
+			continue
+		}
+		matches, err := filepath.Glob(filepath.Join(root, p.Name(), "*.jsonl"))
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, matches...)
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
+func Find(root, id string) (string, error) {
+	if strings.HasSuffix(id, ".jsonl") {
+		return id, nil
+	}
+	matches, err := filepath.Glob(filepath.Join(root, "*", id+"*.jsonl"))
+	if err != nil {
+		return "", err
+	}
+	switch len(matches) {
+	case 0:
+		return "", errors.New("no session matches " + id)
+	case 1:
+		return matches[0], nil
+	default:
+		return "", errors.New("several sessions match " + id)
+	}
+}
+
+func Load(path string) (session.Session, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return session.Session{}, err
+	}
+	defer f.Close()
+	s := session.Session{Harness: Harness, Path: path, ID: strings.TrimSuffix(filepath.Base(path), ".jsonl")}
+	p := parser{seen: map[string]bool{}}
+	if err := p.read(f, &s, false); err != nil {
+		return s, err
+	}
+	subagents, _ := filepath.Glob(filepath.Join(strings.TrimSuffix(path, ".jsonl"), "subagents", "*.jsonl"))
+	for _, sub := range subagents {
+		if err := p.attach(sub, &s); err != nil {
+			return s, err
+		}
+	}
+	return s, nil
+}
+
+type line struct {
+	Type        string    `json:"type"`
+	SessionID   string    `json:"sessionId"`
+	RequestID   string    `json:"requestId"`
+	Timestamp   time.Time `json:"timestamp"`
+	Cwd         string    `json:"cwd"`
+	GitBranch   string    `json:"gitBranch"`
+	Version     string    `json:"version"`
+	IsMeta      bool      `json:"isMeta"`
+	IsSidechain bool      `json:"isSidechain"`
+	Message     struct {
+		ID      string          `json:"id"`
+		Model   string          `json:"model"`
+		Content json.RawMessage `json:"content"`
+		Usage   *struct {
+			InputTokens              int64 `json:"input_tokens"`
+			CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+			CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+			OutputTokens             int64 `json:"output_tokens"`
+			CacheCreation            *struct {
+				FiveMinute int64 `json:"ephemeral_5m_input_tokens"`
+				OneHour    int64 `json:"ephemeral_1h_input_tokens"`
+			} `json:"cache_creation"`
+		} `json:"usage"`
+	} `json:"message"`
+}
+
+type block struct {
+	Type  string `json:"type"`
+	Text  string `json:"text"`
+	Name  string `json:"name"`
+	Input struct {
+		Command  string `json:"command"`
+		FilePath string `json:"file_path"`
+	} `json:"input"`
+}
+
+type parser struct {
+	seen map[string]bool
+}
+
+func (p *parser) read(r io.Reader, s *session.Session, sidechain bool) error {
+	br := bufio.NewReaderSize(r, 1<<20)
+	for {
+		raw, err := br.ReadBytes('\n')
+		if len(raw) > 0 {
+			var l line
+			if json.Unmarshal(raw, &l) == nil {
+				p.apply(l, s, sidechain)
+			}
+		}
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (p *parser) attach(path string, s *session.Session) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var sub session.Session
+	if err := p.read(f, &sub, true); err != nil {
+		return err
+	}
+	for _, r := range sub.Requests() {
+		i := turnAt(s.Turns, r.Time)
+		if i < 0 {
+			continue
+		}
+		s.Turns[i].Requests = append(s.Turns[i].Requests, r)
+	}
+	return nil
+}
+
+func turnAt(turns []session.Turn, t time.Time) int {
+	i := sort.Search(len(turns), func(i int) bool { return turns[i].Time.After(t) })
+	return i - 1
+}
+
+func (p *parser) apply(l line, s *session.Session, sidechain bool) {
+	if s.Project == "" && l.Cwd != "" {
+		s.Project, s.Branch, s.Version = l.Cwd, l.GitBranch, l.Version
+	}
+	switch l.Type {
+	case "user":
+		if l.IsMeta {
+			return
+		}
+		text, ok := userText(l.Message.Content)
+		if !ok {
+			return
+		}
+		kind, events, keep := classify(text)
+		if !keep {
+			return
+		}
+		s.Turns = append(s.Turns, session.Turn{Time: l.Timestamp, Kind: kind, Prompt: text, Events: events})
+	case "assistant":
+		if len(s.Turns) == 0 {
+			s.Turns = append(s.Turns, session.Turn{Time: l.Timestamp, Kind: session.TurnContinuation})
+		}
+		t := &s.Turns[len(s.Turns)-1]
+		t.Events = append(t.Events, toolEvents(l.Message.Content)...)
+		u := l.Message.Usage
+		key := l.RequestID
+		if key == "" {
+			key = l.Message.ID
+		}
+		if u == nil || key == "" || p.seen[key] {
+			return
+		}
+		p.seen[key] = true
+		usage := session.Usage{Input: u.InputTokens, CacheRead: u.CacheReadInputTokens, Output: u.OutputTokens}
+		if c := u.CacheCreation; c != nil {
+			usage.CacheWrite5m, usage.CacheWrite1h = c.FiveMinute, c.OneHour
+		}
+		if rest := u.CacheCreationInputTokens - usage.CacheWrite5m - usage.CacheWrite1h; rest > 0 {
+			usage.CacheWrite5m += rest
+		}
+		t.Requests = append(t.Requests, session.Request{
+			ID: key, Time: l.Timestamp, Model: l.Message.Model, Usage: usage,
+			Sidechain: sidechain || l.IsSidechain,
+		})
+	}
+}
+
+func userText(raw json.RawMessage) (string, bool) {
+	var str string
+	if json.Unmarshal(raw, &str) == nil {
+		return str, strings.TrimSpace(str) != ""
+	}
+	var blocks []block
+	if json.Unmarshal(raw, &blocks) != nil {
+		return "", false
+	}
+	var parts []string
+	for _, b := range blocks {
+		if b.Type == "text" && strings.TrimSpace(b.Text) != "" {
+			parts = append(parts, b.Text)
+		}
+	}
+	return strings.Join(parts, "\n"), len(parts) > 0
+}
+
+var commandName = regexp.MustCompile(`<command-name>([^<]+)</command-name>`)
+
+func classify(text string) (session.TurnKind, []session.Event, bool) {
+	trimmed := strings.TrimSpace(text)
+	switch {
+	case strings.HasPrefix(trimmed, "<local-command-"):
+		return "", nil, false
+	case strings.HasPrefix(trimmed, "<command-"):
+		name := "?"
+		if m := commandName.FindStringSubmatch(trimmed); m != nil {
+			name = m[1]
+		}
+		return session.TurnCommand, []session.Event{{Kind: session.EventCommand, Detail: name}}, true
+	case strings.HasPrefix(trimmed, "<task-notification>"):
+		return session.TurnNotification, nil, true
+	case strings.HasPrefix(trimmed, "This session is being continued"):
+		return session.TurnContinuation, nil, true
+	}
+	return session.TurnPrompt, nil, true
+}
+
+func toolEvents(raw json.RawMessage) []session.Event {
+	var blocks []block
+	if json.Unmarshal(raw, &blocks) != nil {
+		return nil
+	}
+	var out []session.Event
+	for _, b := range blocks {
+		if b.Type != "tool_use" {
+			continue
+		}
+		switch b.Name {
+		case "Bash":
+			if strings.Contains(b.Input.Command, "git commit") {
+				out = append(out, session.Event{Kind: session.EventCommit})
+			}
+			if strings.Contains(b.Input.Command, "git push") {
+				out = append(out, session.Event{Kind: session.EventPush})
+			}
+		case "Artifact":
+			out = append(out, session.Event{Kind: session.EventPublish})
+		case "Edit", "Write", "NotebookEdit":
+			out = append(out, session.Event{Kind: session.EventEdit, Detail: b.Input.FilePath})
+		}
+	}
+	return out
+}

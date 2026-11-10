@@ -1,0 +1,2 @@
+{"type":"user","isSidechain":true,"sessionId":"s1","timestamp":"2026-11-10T10:02:06Z","message":{"role":"user","content":"subagent task"}}
+{"type":"assistant","isSidechain":true,"sessionId":"s1","requestId":"r4","timestamp":"2026-11-10T10:02:30Z","message":{"id":"m4","model":"claude-sonnet-5-5","content":[],"usage":{"input_tokens":3,"cache_read_input_tokens":0,"cache_creation_input_tokens":8000,"output_tokens":400}}}
