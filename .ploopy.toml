@@ -1,0 +1,15 @@
+plans = "docs/plans"
+context = []
+verify = "just verify"
+test = "just test"
+setup = 'if [ ! -e .env ] && [ ! -L .env ] && [ -f "$PLOOPY_MAIN/.env" ]; then ln -s "$PLOOPY_MAIN/.env" .env; fi && direnv allow . && direnv exec . true'
+launch = "tmux"
+
+[run]
+agent = "opencode"
+effort = "high"
+
+[review]
+mode = "direct"
+followups_instructions = ".agents/review-followups.md"
+followups_paths = ["docs/workbench/*.md"]

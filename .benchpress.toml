@@ -1,0 +1,3 @@
+dir = "docs/workbench"
+kinds = ["bug", "change", "design", "idea"]
+areas = ["model", "adapters", "signals", "watcher", "tooling"]

@@ -1,0 +1,10 @@
+.direnv/
+.env
+.env.*
+!.env.example
+result
+result-*
+/.pre-commit-config.yaml
+.ploopy/
+__pycache__/
+bin/
