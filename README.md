@@ -60,13 +60,15 @@ and prints one segment about the session it names, parsing the whole
 transcript on each call (the largest real one takes about 0.14 s):
 
 ```
-241k · turn $1.75 (hist $0.71)
-571k · turn $3.26 (hist $2.47) · ↻ reset pays
-597k · turn $3.26 (hist $2.47) · cold +$4.78
+ctx 76% · turn $1.75 (hist $0.71)
+ctx 43% · turn $3.26 (hist $2.47) · ↻ reset pays
+ctx 40% · turn $3.26 (hist $2.47) · cold +$4.78
 ```
 
 A *turn* is your message up to the agent's reply, subagents included. The
-segment shows the context, what your last turn cost, and how much of that paid
+segment shows how much of the context window is left (as Claude Code reports
+it; the context in thousands of tokens, `241k`, when it does not), what your
+last turn cost, and how much of that paid
 for re-reading history above the session's starting context. `↻ reset pays`
 (yellow) appears when that history cost at least as much as a reset would (a
 handover note plus a fresh start): if your next turn is like the last one and

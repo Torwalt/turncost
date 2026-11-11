@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,28 +89,40 @@ func TestSegmentShapes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ro := base
 			tc.edit(&ro)
-			if got := segment(ro, false); got != tc.want {
+			if got := segment(ro, fmt.Sprintf("%dk", ro.Context/1000), false); got != tc.want {
 				t.Errorf("got %q, want %q", got, tc.want)
 			}
 		})
 	}
-	if got := segment(signal.Readout{}, false); got != "" {
+	if got := segment(signal.Readout{}, "", false); got != "" {
 		t.Errorf("segment of no main request = %q, want empty", got)
 	}
 }
 
 func TestSegmentColoursOnlyTheNudgeAndTheColdPrice(t *testing.T) {
 	ro := signal.Readout{HasMain: true, Priced: true, Context: 571_000, HasLastTurn: true, LastTurn: 3.26, LastTurnHistory: 2.47, ResetPays: true}
-	if got, want := segment(ro, true), "571k · turn $3.26 (hist $2.47) · \x1b[1;33m↻ reset pays\x1b[0m"; got != want {
+	if got, want := segment(ro, fmt.Sprintf("%dk", ro.Context/1000), true), "571k · turn $3.26 (hist $2.47) · \x1b[1;33m↻ reset pays\x1b[0m"; got != want {
 		t.Errorf("nudge: got %q, want %q", got, want)
 	}
 	ro.ResetPays, ro.Cold, ro.ColdNext = false, true, 4.57
-	if got, want := segment(ro, true), "571k · turn $3.26 (hist $2.47) · \x1b[36mcold +$4.57\x1b[0m"; got != want {
+	if got, want := segment(ro, fmt.Sprintf("%dk", ro.Context/1000), true), "571k · turn $3.26 (hist $2.47) · \x1b[36mcold +$4.57\x1b[0m"; got != want {
 		t.Errorf("cold: got %q, want %q", got, want)
 	}
 	ro.Cold = false
-	if got := segment(ro, true); strings.Contains(got, "\x1b") {
+	if got := segment(ro, fmt.Sprintf("%dk", ro.Context/1000), true); strings.Contains(got, "\x1b") {
 		t.Errorf("plain state is coloured: %q", got)
+	}
+}
+
+func TestContextShowsTheShareLeftWhenTheHarnessReportsIt(t *testing.T) {
+	warm := payload(t, "testdata/warm.jsonl")
+	withLeft := strings.Replace(warm, "{", `{"context_window":{"remaining_percentage":74.6},`, 1)
+	if got, want := statusline(t, withLeft, warmNow), "ctx 74% · turn $0.27 (hist $0.08)\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	withNull := strings.Replace(warm, "{", `{"context_window":{"remaining_percentage":null},`, 1)
+	if got, want := statusline(t, withNull, warmNow), "450k · turn $0.27 (hist $0.08)\n"; got != want {
+		t.Errorf("null share: got %q, want %q", got, want)
 	}
 }
 

@@ -92,7 +92,10 @@ nudge "rather than just showing these numbers", hence *reset pays*.
 
 - `turncost statusline [-- command args…]` formats the readout as one segment
   for Claude Code's statusline, short enough to share a line with the user's
-  own: `241k · turn $1.75 (hist $0.71)`, then ` · bg +$0.40` when background
+  own: `ctx 76% · turn $1.75 (hist $0.71)`, where `ctx` is the share of the
+  context window left (`context_window.remaining_percentage`, rounded down, the
+  way the rate limits beside it read; the context in thousands of tokens,
+  `241k`, when the harness does not report it), then ` · bg +$0.40` when background
   requests followed the turn, then ` · cold +$4.78` (cyan) when cold or
   ` · ↻ reset pays` (bold yellow) on the nudge; the context alone for an
   unknown model; and
@@ -191,8 +194,9 @@ What the statusline, hook and plugin work relies on (Claude Code docs, read
 payloads):
 
 - **Statusline**: one `statusLine.command` per user. Claude Code pipes a JSON
-  object to its stdin (`transcript_path`, `session_id`, and
-  `workspace.project_dir`, else `cwd`, are used) and shows
+  object to its stdin (`transcript_path`, `session_id`,
+  `context_window.remaining_percentage`, and `workspace.project_dir`, else
+  `cwd`, are used) and shows
   its stdout. It re-runs after each assistant message, at session start
   (including after `/clear`) and when a warm prompt cache expires, debounced at
   300 ms; the transcript may not exist yet at session start. It only runs in

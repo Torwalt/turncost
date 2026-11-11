@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/Torwalt/turncost/internal/adapter"
 	"github.com/Torwalt/turncost/internal/handover"
 	"github.com/Torwalt/turncost/internal/pricing"
+	"github.com/Torwalt/turncost/internal/session"
 	"github.com/Torwalt/turncost/internal/signal"
 )
 
@@ -82,7 +84,7 @@ func statuslineSegment(input []byte, now time.Time) (string, error) {
 	if !ro.HasMain {
 		return waiting(), nil
 	}
-	return segment(ro, os.Getenv("NO_COLOR") == ""), nil
+	return segment(ro, contextText(ro, ref), os.Getenv("NO_COLOR") == ""), nil
 }
 
 // waitingSegment names the handover note waiting for the project of dir.
@@ -104,11 +106,21 @@ const (
 	colorCold  = "\x1b[36m"   // cyan
 )
 
+// contextText is the context part of the segment: the share of the window
+// left when the harness reports it, like the rate limits beside it, else the
+// context in thousands of tokens.
+func contextText(ro signal.Readout, ref session.Ref) string {
+	if ref.HasContextLeft {
+		return fmt.Sprintf("ctx %d%%", int(math.Floor(ref.ContextLeft)))
+	}
+	return fmt.Sprintf("%dk", ro.Context/1000)
+}
+
 // segment formats a readout as the statusline text, short enough to share a
-// line with the user's own statusline: context, the last turn's cost and its
-// history, background follow-ups when any, then the cold price or the nudge.
-// color adds ANSI colour to the last two.
-func segment(ro signal.Readout, color bool) string {
+// line with the user's own statusline: context (ctx, from contextText), the
+// last turn's cost and its history, background follow-ups when any, then the
+// cold price or the nudge. color adds ANSI colour to the last two.
+func segment(ro signal.Readout, ctx string, color bool) string {
 	if !ro.HasMain {
 		return ""
 	}
@@ -118,7 +130,7 @@ func segment(ro signal.Readout, color bool) string {
 		}
 		return code + text + colorReset
 	}
-	parts := []string{fmt.Sprintf("%dk", ro.Context/1000)}
+	parts := []string{ctx}
 	if !ro.Priced {
 		return parts[0]
 	}

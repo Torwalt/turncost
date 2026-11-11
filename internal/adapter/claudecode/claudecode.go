@@ -152,9 +152,11 @@ func Current(root, dir string) (string, error) {
 }
 
 // ParseStatusline reads the JSON Claude Code pipes to a statusline command.
-// Only the session id, transcript path and directory are used: the directory
-// the session was started in (workspace.project_dir), else the working
-// directory, which follows the agent's shell into subdirectories.
+// Only the session id, transcript path, directory and the share of the
+// context window left (context_window.remaining_percentage) are used: the directory
+// directory is the one the session was started in (workspace.project_dir),
+// else the working directory, which follows the agent's shell into
+// subdirectories.
 func ParseStatusline(data []byte) (session.Ref, error) {
 	var in struct {
 		SessionID      string `json:"session_id"`
@@ -163,6 +165,9 @@ func ParseStatusline(data []byte) (session.Ref, error) {
 		Workspace      struct {
 			ProjectDir string `json:"project_dir"`
 		} `json:"workspace"`
+		ContextWindow struct {
+			RemainingPercentage *float64 `json:"remaining_percentage"`
+		} `json:"context_window"`
 	}
 	if err := json.Unmarshal(data, &in); err != nil {
 		return session.Ref{}, err
@@ -171,7 +176,11 @@ func ParseStatusline(data []byte) (session.Ref, error) {
 	if dir == "" {
 		dir = in.Cwd
 	}
-	return session.Ref{ID: in.SessionID, Transcript: in.TranscriptPath, Dir: dir}, nil
+	ref := session.Ref{ID: in.SessionID, Transcript: in.TranscriptPath, Dir: dir}
+	if left := in.ContextWindow.RemainingPercentage; left != nil {
+		ref.ContextLeft, ref.HasContextLeft = *left, true
+	}
+	return ref, nil
 }
 
 // ParsePrompt reads the JSON a UserPromptSubmit hook gets on stdin: the

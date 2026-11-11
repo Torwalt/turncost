@@ -97,4 +97,8 @@ type Ref struct {
 	ID         string
 	Transcript string
 	Dir        string
+	// ContextLeft is the share of the model's context window still free, in
+	// percent, when the harness reports it; HasContextLeft says whether it did.
+	ContextLeft    float64
+	HasContextLeft bool
 }

@@ -185,4 +185,11 @@ func TestParseStatuslinePrefersTheProjectDirectory(t *testing.T) {
 	if ref.Dir != "/repo" {
 		t.Errorf("Dir = %q, want the project directory /repo", ref.Dir)
 	}
+	if ref.HasContextLeft {
+		t.Error("context left set without context_window")
+	}
+	ref, err = ParseStatusline([]byte(`{"context_window":{"remaining_percentage":74.6}}`))
+	if err != nil || !ref.HasContextLeft || ref.ContextLeft != 74.6 {
+		t.Errorf("ref = %+v, err %v, want 74.6%% of the context left", ref, err)
+	}
 }
