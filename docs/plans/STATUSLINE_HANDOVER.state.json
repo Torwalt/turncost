@@ -96,6 +96,30 @@
         "cache_read": 619919,
         "cache_write": 55516
       }
+    },
+    "3.1": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:06:31+01:00",
+      "agent": "claude sonnet high",
+      "base": "9c8451e3789b1de808ff1b2b25a0f0113d24b32c",
+      "commits": [
+        "ddd4512df24708b8d9d59d4476a27df858fff5b0 add turncost handover: notes a session leaves for the next, shown by the statusline while waiting"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- `turncost handover write|take|drop|ls` (`cmd/turncost/handover.go`) over the new\n  `internal/handover` store (`Store{Root}`: Write, List, Waiting, Take, Drop; `ErrNoneWaiting`).\n  Format, state dir, file naming and \"writing drops older waiting notes\" follow the contract.\n- `Adapter.ProjectKey(dir)` (claudecode: abs + `EncodeDir`) so the store stays harness-free; the\n  store takes the project as an opaque key.\n- `statuslineSegment` now returns `handover waiting since HH:MM · /takeover` (note's local time)\n  when the transcript path is empty, the file is missing, or the session has no main request,\n  and a note waits for `Ref.Dir`'s project. README and DESIGN.md updated.\n- Tests: `internal/handover/handover_test.go`; `cmd/turncost/handover_test.go` (write/take, take with\n  nothing waiting → exit 1 and the exact stderr, second write drops first, drop, ls, misuse, waiting\n  segment for a `/clear`-only transcript, missing transcript, other project, after take).\n\n## Landmark drift\nNone.\n\n## Deviations from the work order\n- `runHandover` returns the exit status (0/1/2) instead of an error, because the \"no handover\n  waiting for \u003cdir\u003e\" message must be printed without main's `turncost:` prefix.\n- File timestamp layout is Go's `20060102T150405Z` (the plan's `20061102…` is a typo of the\n  reference time). Two writes in the same second+session id bump the second's time by 1 s\n  (`O_EXCL`) so none is overwritten.\n- Choices left open: an empty/whitespace-only note is refused; a missing `\\n` at the end of the\n  body is added; `-session` is used verbatim (no prefix resolution); when `-session` is absent and\n  no transcript exists, `write`/`take` fail with \"…; pass -session\" (but `take` with nothing waiting\n  reports that first, without needing a session); `ls` prints `state  written  from \u003cid8\u003e  detail\n  first-line-of-note`, newest first, or `no handovers for \u003cdir\u003e`; files 0600, dirs 0700.\n- The session id for the `-session` default is `Load(Current(...)).ID` (parses the transcript).\n- Statusline waiting form needs `cwd` in the payload; without it, nothing is shown.\n\n## What the next session must know\n- `cmd/turncost` tests now run under `TestMain` that points `XDG_STATE_HOME` and `CLAUDE_CONFIG_DIR`\n  at a temp dir for the whole package; individual tests use `t.Setenv` for their own. A test that\n  writes a note for `/repo` (the `payload` helper's cwd) must set its own `XDG_STATE_HOME`.\n- `handover.StateDir()` (`$XDG_STATE_HOME/turncost`) is exported for the cold-guard marker\n  (`…/warned/\u003csession id\u003e`) of the next stage.\n- `handover.Default()` reads the environment on each call; no package-level state.\n- The skills (`/handover`, `/takeover`) can rely on: `write` prints the path then\n  `next: /clear, then /takeover`; `take` prints only the body to stdout.\n- I did not touch `docs/workbench/handover-and-takeover-through-clear.md` (author's, state: planned).\n\n## Open problems\n- Concurrent writers are only guarded by `O_EXCL` on creation and atomic rename on settle; a\n  take racing a write could lose a header line. Not worth more for a single-user tool.\n- `just verify` and `just test` are green; tree clean at the commit.",
+      "session_id": "708cfbb2-77c5-4ed7-81fa-a99d3216aa7d",
+      "cost_usd": 0.5675898,
+      "harness": "claude",
+      "elapsed_s": 158,
+      "session_s": 157,
+      "tokens": {
+        "input": 30,
+        "output": 19313,
+        "reasoning": 4681,
+        "cache_read": 809378,
+        "cache_write": 61663
+      }
     }
   }
 }
