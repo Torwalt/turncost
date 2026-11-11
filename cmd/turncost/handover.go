@@ -55,6 +55,7 @@ func runHandover(args []string, stdin io.Reader, w, errw io.Writer, now time.Tim
 		fmt.Fprintln(errw, "turncost:", err)
 		return 1
 	}
+	project = harness.ProjectDir(harness.DefaultRoot(), project)
 	key := harness.ProjectKey(project)
 	fail := func(err error) int {
 		fmt.Fprintln(errw, "turncost:", err)

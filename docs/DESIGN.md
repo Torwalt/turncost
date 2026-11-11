@@ -47,35 +47,49 @@ false; costs include sidechain requests, everything else uses main requests.
   an unknown model the readout carries C only.
 - **TTL**: one hour if any main request wrote 1-hour cache, else five minutes.
   **w**: the matching cache-write price. **Cold**: now − last main request > TTL.
-- **Step** = C × cache-read / 1e6. **Carry** = max(C − B, 0) × cache-read / 1e6.
-  **History share** = carry / step. **Cold next step** = C × w / 1e6.
-- **Last turn** and **steps per turn** work on groups of turns: a group starts
-  at a `prompt` turn or a `command` turn that has requests, and the
-  `notification` and `continuation` turns after it join it. A request-less
-  command (`/clear`, `/effort`) starts nothing. Last turn is the cost of the
-  last group with a request; steps per turn is the median main-request count.
+- **Turn**: the user's message up to the agent's reply. A `prompt` turn, or a
+  `command` turn that has requests, starts one; `continuation` turns after it
+  join it. A request-less command (`/clear`, `/effort`) and a prompt stopped
+  before any request change nothing. **Last turn** is the cost of the last
+  turn with a request, subagents included. **Last turn history** is what its
+  main requests paid to re-read context above the baseline:
+  Σ max(Cᵢ − B, 0) × cache-read / 1e6.
+- **Background**: the cost of requests that `notification` turns (a finished
+  background task or monitor) set off after the last turn. The agent reacts to
+  these after it has replied; they are not the user's turn, and turncost cannot
+  tell a useful reaction from a redundant one. In the author's 40 costliest
+  sessions of 2026-10-12 to 2026-11-11 they were 79 turns and 8.7% of the cost.
+- **Cold next turn** (`ColdNext`) = C × w / 1e6: what the next turn pays first
+  to re-write the context.
 - **Reset estimate** R = handover + fresh. Handover is `HandoverRequests` (3)
   cache-read passes over C plus `HandoverOutputTokens` (5,000) of output; cold,
   the first pass is a cache write. Fresh is `FreshRebuild` (2) × B × w / 1e6,
   the new session's starting context twice over. These three constants are
   placeholders for the backtest and live in one block in
-  `internal/signal/readout.go`. **Payback steps** = ceil(R / carry) when carry
-  is positive; payback turns divide that by steps per turn. `FreshStart` =
-  B × w / 1e6 is what a fresh session starts at.
+  `internal/signal/readout.go`. **Payback turns** = R / last turn history when
+  that is positive: how many turns like the last one a reset pays back in.
+  `FreshStart` = B × w / 1e6 is what a fresh session starts at.
+
+Requests (API calls, one per tool round trip) are how cost accrues, but the
+readout no longer shows them: the user thinks in turns, and turn size varies
+too much (1 to over 100 requests) for a per-request figure to say anything.
 
 Worked example (Opus 5.5, read $0.20/M, 1-hour write $8/M, output $20/M;
-B 48k, C 450k, last request 10 minutes ago): step $0.090, carry $0.0804,
-history 89%, handover $0.37, fresh $0.768, R $1.138, payback 15 steps. Idle
-72 minutes instead: cold next step $3.60, handover $3.88.
+B 48k, C 450k, last request 10 minutes ago, a last turn of ten requests at
+450k): last turn $0.90, history $0.804, handover $0.37, fresh $0.768,
+R $1.138, payback 1.4 turns. Idle 72 minutes instead: cold next turn $3.60,
+handover $3.88.
 
 The readout is numbers, not a verdict; it never says "reset now".
 
 ## Commands that read it
 
 - `turncost statusline [-- command args…]` formats the readout as one segment
-  for Claude Code's statusline: `450k · last turn $2.35 · step $0.090 (89%
-  history) · reset pays in ~15 steps (<1 turn)` warm, `450k · cold: next step
-  $3.60 · last turn $2.35` cold, the context alone for an unknown model, and
+  for Claude Code's statusline: `571k · last turn $3.26, $2.47 of it history ·
+  reset ≈ $1.21, pays back in <1 turn` warm, with ` · background +$0.40` when
+  background requests followed the turn; `571k · cold: next turn starts at
+  +$4.57 · last turn …` cold, without the reset; the context alone for an
+  unknown model; and
   empty before the first main request. With a command after `--` it runs it on
   the same stdin and joins its output and the segment with ` · `. It never
   fails the statusline: on its own errors it prints what it has and exits 0.
@@ -128,6 +142,9 @@ the `adapter.Adapter` interface in `internal/adapter`:
 - `Name`, `DefaultRoot`, `Discover(root)`, `Find(root, id)`, `Load(path)`:
   locate and parse transcripts.
 - `Current(root, dir)`: the transcript of the current session of a directory.
+- `ProjectDir(root, dir)`: the directory a working directory's sessions belong
+  to, itself or its nearest ancestor with sessions. The handover commands use
+  it, because the agent's shell may have moved into a subdirectory.
 - `ProjectKey(dir)`: the name of the directory's project, the same for every
   session run there.
 - `ParseStatusline(data)`: the session a statusline payload names, as a
@@ -168,7 +185,8 @@ What the statusline, hook and plugin work relies on (Claude Code docs, read
 payloads):
 
 - **Statusline**: one `statusLine.command` per user. Claude Code pipes a JSON
-  object to its stdin (`transcript_path`, `session_id`, `cwd` are used) and shows
+  object to its stdin (`transcript_path`, `session_id`, and
+  `workspace.project_dir`, else `cwd`, are used) and shows
   its stdout. It re-runs after each assistant message, at session start
   (including after `/clear`) and when a warm prompt cache expires, debounced at
   300 ms; the transcript may not exist yet at session start. It only runs in

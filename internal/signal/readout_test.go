@@ -34,7 +34,7 @@ func near(t *testing.T, name string, got, want float64) {
 var t0 = time.Date(2026, 11, 11, 9, 0, 0, 0, time.UTC)
 
 // worked builds the plan's example: B = 48k, C = 450k, one-hour cache, three
-// groups of 20 main requests, the last costing $2.35 with a sidechain request.
+// prompts of 20 main requests, the last costing $2.35 with a sidechain request.
 func worked() (session.Session, time.Time) {
 	group := func(start time.Duration, firstReq, lastReq session.Request) session.Turn {
 		reqs := []session.Request{firstReq}
@@ -71,18 +71,17 @@ func TestReadWorkedExampleWarm(t *testing.T) {
 		t.Errorf("B, C, TTL = %d, %d, %v", ro.Baseline, ro.Context, ro.TTL)
 	}
 	near(t, "last turn", ro.LastTurn, 2.35)
-	near(t, "step", ro.Step, 0.090)
-	near(t, "carry", ro.Carry, 0.0804)
-	near(t, "history share", ro.HistoryShare, 0.893)
+	// Only the last request re-read more than the baseline: (450k − 48k) × $0.20/M.
+	near(t, "last turn history", ro.LastTurnHistory, 0.0804)
+	near(t, "background", ro.Background, 0)
 	near(t, "handover", ro.Handover, 0.37)
 	near(t, "fresh start", ro.FreshStart, 0.384)
 	near(t, "fresh", ro.Fresh, 0.768)
 	near(t, "reset", ro.Reset, 1.138)
-	if !ro.HasPayback || ro.PaybackSteps != 15 {
-		t.Errorf("payback = %v %d steps, want 15", ro.HasPayback, ro.PaybackSteps)
+	if !ro.HasPayback {
+		t.Error("no payback, want one: the last turn carried history")
 	}
-	near(t, "steps per turn", ro.StepsPerTurn, 20)
-	near(t, "payback turns", ro.PaybackTurns, 0.75)
+	near(t, "payback turns", ro.PaybackTurns, 1.138/0.0804)
 }
 
 func TestReadWorkedExampleCold(t *testing.T) {
@@ -94,31 +93,35 @@ func TestReadWorkedExampleCold(t *testing.T) {
 	}
 	near(t, "cold next step", ro.ColdNext, 3.60)
 	near(t, "handover", ro.Handover, 3.88)
-	near(t, "step", ro.Step, 0.090)
+	near(t, "last turn history", ro.LastTurnHistory, 0.0804)
 }
 
-func TestReadStepsPerTurnIsMedianOfMainRequests(t *testing.T) {
-	var turns []session.Turn
-	for i, n := range []int{1, 20, 3} {
-		var reqs []session.Request
-		for j := 0; j < n; j++ {
-			reqs = append(reqs, main(t0.Add(time.Duration(i*100+j)*time.Second), 10_000, 10_000))
-		}
-		turns = append(turns, session.Turn{Kind: session.TurnPrompt, Requests: reqs})
+func TestReadHistoryOfALongTurnPaysBackTheReset(t *testing.T) {
+	var reqs []session.Request
+	reqs = append(reqs, main(t0, 48_000, 48_000))
+	turns := []session.Turn{{Kind: session.TurnPrompt, Requests: reqs}}
+	var long []session.Request
+	for i := 0; i < 10; i++ {
+		long = append(long, main(t0.Add(time.Duration(i+1)*time.Minute), 450_000, 0))
 	}
-	ro := Read(session.Session{Turns: turns}, t0, lookup)
-	if ro.StepsPerTurn != 3 {
-		t.Errorf("steps per turn = %v, want 3", ro.StepsPerTurn)
-	}
+	turns = append(turns, session.Turn{Kind: session.TurnPrompt, Requests: long})
+	ro := Read(session.Session{Turns: turns}, t0.Add(15*time.Minute), lookup)
+
+	// Ten requests each re-reading 402k beyond the baseline at $0.20/M.
+	near(t, "last turn history", ro.LastTurnHistory, 0.804)
+	near(t, "last turn", ro.LastTurn, 0.90)
+	near(t, "reset", ro.Reset, 1.138)
+	near(t, "payback turns", ro.PaybackTurns, 1.138/0.804)
 }
 
-func TestReadTurnGrouping(t *testing.T) {
-	cmd := func(at time.Time, reqs ...session.Request) session.Turn {
-		return session.Turn{Kind: session.TurnCommand, Time: at, Requests: reqs}
+func TestReadTurnAndBackground(t *testing.T) {
+	cmd := func(reqs ...session.Request) session.Turn {
+		return session.Turn{Kind: session.TurnCommand, Requests: reqs}
 	}
 	prompt := main(t0, 10_000, 10_000)
-	note := main(t0.Add(time.Minute), 10_000, 0)
-	next := main(t0.Add(2*time.Minute), 10_000, 0)
+	cont := main(t0.Add(30*time.Second), 20_000, 0)
+	note := main(t0.Add(time.Minute), 30_000, 0)
+	next := main(t0.Add(2*time.Minute), 40_000, 0)
 	cost := func(rs ...session.Request) float64 {
 		var c float64
 		for _, r := range rs {
@@ -126,29 +129,33 @@ func TestReadTurnGrouping(t *testing.T) {
 		}
 		return c
 	}
+	check := func(name string, ro Readout, turn, background float64) {
+		t.Helper()
+		if math.Abs(ro.LastTurn-turn) > 1e-9 || math.Abs(ro.Background-background) > 1e-9 {
+			t.Errorf("%s: last turn %v background %v, want %v and %v", name, ro.LastTurn, ro.Background, turn, background)
+		}
+	}
 
 	s := session.Session{Turns: []session.Turn{
 		{Kind: session.TurnPrompt, Requests: []session.Request{prompt}},
+		{Kind: session.TurnContinuation, Requests: []session.Request{cont}},
 		{Kind: session.TurnNotification, Requests: []session.Request{note}},
-		cmd(t0.Add(90 * time.Second)), // /clear: no requests
+		cmd(),                      // /clear-like: no requests
+		{Kind: session.TurnPrompt}, // stopped before any request
 	}}
-	ro := Read(s, t0.Add(time.Minute), lookup)
-	if want := cost(prompt, note); math.Abs(ro.LastTurn-want) > 1e-9 {
-		t.Errorf("last turn = %v, want %v: the notification joins the prompt before it", ro.LastTurn, want)
-	}
-	if ro.StepsPerTurn != 2 {
-		t.Errorf("steps per turn = %v, want 2", ro.StepsPerTurn)
-	}
+	check("notification after the reply", Read(s, t0.Add(time.Minute), lookup), cost(prompt, cont), cost(note))
 
-	// A command that ran starts its own group; one that did not starts none.
-	s.Turns = append(s.Turns, cmd(t0.Add(2*time.Minute), next))
-	ro = Read(s, t0.Add(time.Minute), lookup)
-	if want := cost(next); math.Abs(ro.LastTurn-want) > 1e-9 {
-		t.Errorf("last turn = %v, want %v: a command with requests starts a group", ro.LastTurn, want)
+	// A command that ran starts a new turn and clears the background.
+	s.Turns = append(s.Turns, cmd(next))
+	check("command that ran", Read(s, t0.Add(2*time.Minute), lookup), cost(next), 0)
+
+	// A session that so far only reacted to background events has no turn.
+	only := session.Session{Turns: []session.Turn{{Kind: session.TurnNotification, Requests: []session.Request{note}}}}
+	ro := Read(only, t0.Add(time.Minute), lookup)
+	if ro.HasLastTurn || ro.HasPayback {
+		t.Errorf("readout = %+v, want no last turn", ro)
 	}
-	if ro.StepsPerTurn != 1.5 {
-		t.Errorf("steps per turn = %v, want 1.5 (groups of 2 and 1)", ro.StepsPerTurn)
-	}
+	check("background only", ro, 0, cost(note))
 }
 
 func TestReadSkipsGroupsWithoutRequests(t *testing.T) {
@@ -190,19 +197,18 @@ func TestReadNoMainRequest(t *testing.T) {
 	}
 }
 
-func TestReadCarryZeroHasNoPayback(t *testing.T) {
+func TestReadNoHistoryHasNoPayback(t *testing.T) {
 	// One request: the context is the baseline.
 	s := session.Session{Turns: []session.Turn{{Kind: session.TurnPrompt, Requests: []session.Request{main(t0, 48_000, 48_000)}}}}
 	ro := Read(s, t0, lookup)
-	if ro.Carry != 0 || ro.HasPayback || ro.PaybackSteps != 0 || ro.PaybackTurns != 0 {
-		t.Errorf("readout = %+v, want no carry and no payback", ro)
+	if ro.LastTurnHistory != 0 || ro.HasPayback || ro.PaybackTurns != 0 {
+		t.Errorf("readout = %+v, want no history and no payback", ro)
 	}
-	near(t, "step", ro.Step, 48_000*0.2/1e6)
 
-	// Context below the baseline (after a compaction) is carry 0, not negative.
+	// Context below the baseline (after a compaction) is no history, not negative.
 	s.Turns = append(s.Turns, session.Turn{Kind: session.TurnPrompt, Requests: []session.Request{main(t0.Add(time.Minute), 30_000, 0)}})
-	if ro := Read(s, t0.Add(time.Minute), lookup); ro.Carry != 0 || ro.HasPayback {
-		t.Errorf("carry = %v payback = %v below the baseline", ro.Carry, ro.HasPayback)
+	if ro := Read(s, t0.Add(time.Minute), lookup); ro.LastTurnHistory != 0 || ro.HasPayback {
+		t.Errorf("history = %v payback = %v below the baseline", ro.LastTurnHistory, ro.HasPayback)
 	}
 }
 

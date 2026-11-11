@@ -220,3 +220,22 @@ func TestStatuslineShowsAWaitingHandover(t *testing.T) {
 		t.Errorf("after take: got %q", got)
 	}
 }
+
+func TestHandoverFromASubdirectoryBelongsToTheSessionsDirectory(t *testing.T) {
+	p := newProject(t, "aaaaaaaa-1111")
+	sub := filepath.Join(p.dir, "internal", "signal")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, errw, code := handoverCmd(t, "goal: x\n", noteTime, "write", "-dir", sub); code != 0 {
+		t.Fatalf("write from a subdirectory: code %d, stderr %q", code, errw)
+	}
+	notes, _ := handover.Default().List(adapter.Default().ProjectKey(p.dir))
+	if len(notes) != 1 || notes[0].From != "aaaaaaaa-1111" {
+		t.Fatalf("notes under the session's directory = %+v", notes)
+	}
+	newTranscript(t, p, "bbbbbbbb-2222")
+	if out, errw, code := handoverCmd(t, "", noteTime.Add(time.Hour), "take", "-dir", p.dir); code != 0 || out != "goal: x\n" {
+		t.Fatalf("take from the session's directory: code %d, stdout %q, stderr %q", code, out, errw)
+	}
+}

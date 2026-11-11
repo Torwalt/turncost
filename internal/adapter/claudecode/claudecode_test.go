@@ -155,3 +155,34 @@ func TestParsePromptReadsSessionAndPrompt(t *testing.T) {
 		t.Error("malformed payload parsed without error")
 	}
 }
+
+func TestProjectDirIsTheNearestAncestorWithSessions(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, EncodeDir("/home/ada/repos/turncost")), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, EncodeDir("/home/ada")), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tests := map[string]string{
+		"/home/ada/repos/turncost":                 "/home/ada/repos/turncost",
+		"/home/ada/repos/turncost/internal/signal": "/home/ada/repos/turncost",
+		"/home/ada/repos/other":                    "/home/ada",
+		"/srv/nothing/here":                        "/srv/nothing/here",
+	}
+	for dir, want := range tests {
+		if got := ProjectDir(root, dir); got != want {
+			t.Errorf("ProjectDir(%q) = %q, want %q", dir, got, want)
+		}
+	}
+}
+
+func TestParseStatuslinePrefersTheProjectDirectory(t *testing.T) {
+	ref, err := ParseStatusline([]byte(`{"cwd":"/repo/internal","workspace":{"current_dir":"/repo/internal","project_dir":"/repo"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref.Dir != "/repo" {
+		t.Errorf("Dir = %q, want the project directory /repo", ref.Dir)
+	}
+}

@@ -27,6 +27,7 @@ func (Adapter) Find(root, id string) (string, error)      { return Find(root, id
 func (Adapter) Load(path string) (session.Session, error) { return Load(path) }
 func (Adapter) Current(root, dir string) (string, error)  { return Current(root, dir) }
 func (Adapter) ProjectKey(dir string) string              { return ProjectKey(dir) }
+func (Adapter) ProjectDir(root, dir string) string        { return ProjectDir(root, dir) }
 func (Adapter) ParseStatusline(data []byte) (session.Ref, error) {
 	return ParseStatusline(data)
 }
@@ -92,6 +93,25 @@ func EncodeDir(dir string) string {
 	}, dir)
 }
 
+// ProjectDir returns the directory whose sessions dir belongs to: dir or its
+// nearest ancestor that has a project directory under root, else dir itself.
+// An agent's shell can move into a subdirectory of the one its session was
+// started in; the session still belongs to the starting one.
+func ProjectDir(root, dir string) string {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return dir
+	}
+	for d := abs; ; d = filepath.Dir(d) {
+		if info, err := os.Stat(filepath.Join(root, EncodeDir(d))); err == nil && info.IsDir() {
+			return d
+		}
+		if parent := filepath.Dir(d); parent == d {
+			return abs
+		}
+	}
+}
+
 // ProjectKey names the project of the working directory dir: its project
 // directory's name.
 func ProjectKey(dir string) string {
@@ -132,17 +152,26 @@ func Current(root, dir string) (string, error) {
 }
 
 // ParseStatusline reads the JSON Claude Code pipes to a statusline command.
-// Only the session id, transcript path and working directory are used.
+// Only the session id, transcript path and directory are used: the directory
+// the session was started in (workspace.project_dir), else the working
+// directory, which follows the agent's shell into subdirectories.
 func ParseStatusline(data []byte) (session.Ref, error) {
 	var in struct {
 		SessionID      string `json:"session_id"`
 		TranscriptPath string `json:"transcript_path"`
 		Cwd            string `json:"cwd"`
+		Workspace      struct {
+			ProjectDir string `json:"project_dir"`
+		} `json:"workspace"`
 	}
 	if err := json.Unmarshal(data, &in); err != nil {
 		return session.Ref{}, err
 	}
-	return session.Ref{ID: in.SessionID, Transcript: in.TranscriptPath, Dir: in.Cwd}, nil
+	dir := in.Workspace.ProjectDir
+	if dir == "" {
+		dir = in.Cwd
+	}
+	return session.Ref{ID: in.SessionID, Transcript: in.TranscriptPath, Dir: dir}, nil
 }
 
 // ParsePrompt reads the JSON a UserPromptSubmit hook gets on stdin: the

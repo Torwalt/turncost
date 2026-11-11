@@ -23,6 +23,9 @@ type Adapter interface {
 	// Current returns the transcript of the current session of the working
 	// directory dir: the most recently modified one of its project.
 	Current(root, dir string) (string, error)
+	// ProjectDir returns the directory whose sessions the working directory
+	// dir belongs to: dir or its nearest ancestor with sessions under root.
+	ProjectDir(root, dir string) string
 	// ProjectKey names the project of the working directory dir, the same
 	// name for every session run there.
 	ProjectKey(dir string) string

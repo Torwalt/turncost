@@ -107,40 +107,33 @@ func segment(ro signal.Readout) string {
 	if !ro.Priced {
 		return parts[0]
 	}
-	lastTurn := func() {
-		if ro.HasLastTurn {
-			parts = append(parts, fmt.Sprintf("last turn $%.2f", ro.LastTurn))
-		}
-	}
 	if ro.Cold {
-		parts = append(parts, fmt.Sprintf("cold: next step $%.2f", ro.ColdNext))
-		lastTurn()
-		return strings.Join(parts, " · ")
+		parts = append(parts, fmt.Sprintf("cold: next turn starts at +$%.2f", ro.ColdNext))
 	}
-	lastTurn()
-	if !ro.HasPayback {
-		parts = append(parts, fmt.Sprintf("step $%.3f", ro.Step))
-		return strings.Join(parts, " · ")
+	if ro.HasLastTurn {
+		last := fmt.Sprintf("last turn $%.2f", ro.LastTurn)
+		if ro.LastTurnHistory >= 0.005 {
+			last += fmt.Sprintf(", $%.2f of it history", ro.LastTurnHistory)
+		}
+		parts = append(parts, last)
 	}
-	parts = append(parts, fmt.Sprintf("step $%.3f (%.0f%% history)", ro.Step, ro.HistoryShare*100))
-	pays := fmt.Sprintf("reset pays in ~%d %s", ro.PaybackSteps, plural(ro.PaybackSteps, "step"))
-	if ro.PaybackTurns > 0 {
-		pays += " (" + turnsText(ro.PaybackTurns) + ")"
+	if ro.Background >= 0.005 {
+		parts = append(parts, fmt.Sprintf("background +$%.2f", ro.Background))
 	}
-	return strings.Join(append(parts, pays), " · ")
+	if !ro.Cold && ro.HasPayback {
+		parts = append(parts, fmt.Sprintf("reset ≈ $%.2f, pays back in %s", ro.Reset, turnsText(ro.PaybackTurns)))
+	}
+	return strings.Join(parts, " · ")
 }
 
+// turnsText says how many turns like the last one something takes.
 func turnsText(turns float64) string {
 	if turns < 1 {
 		return "<1 turn"
 	}
 	n := int(math.Round(turns))
-	return fmt.Sprintf("~%d %s", n, plural(n, "turn"))
-}
-
-func plural(n int, word string) string {
 	if n == 1 {
-		return word
+		return "~1 turn"
 	}
-	return word + "s"
+	return fmt.Sprintf("~%d turns", n)
 }

@@ -1,8 +1,6 @@
 package signal
 
 import (
-	"math"
-	"sort"
 	"time"
 
 	"github.com/Torwalt/turncost/internal/pricing"
@@ -26,8 +24,14 @@ const (
 type Lookup func(model string) (pricing.Price, bool)
 
 // Readout is what the live surfaces show about a session: its context, what
-// its next step costs and when a reset would pay. All figures are dollars or
-// tokens; the zero value of a Has flag means the figure is absent.
+// the last turn cost and how much of that was history, what follow-ups on
+// background events cost since, and what a reset would cost. All figures are
+// dollars or tokens; the zero value of a Has flag means the figure is absent.
+//
+// A turn is the user's message up to the agent's reply: a prompt, or a command
+// that ran, with the continuations after it. Requests that a background event
+// (a finished task or monitor) set off after the reply are background, not
+// part of the turn.
 type Readout struct {
 	// HasMain is false when the session has no main-thread request yet; every
 	// other field is then zero.
@@ -45,22 +49,26 @@ type Readout struct {
 	Idle        time.Duration
 	Cold        bool
 
-	HasLastTurn  bool
-	LastTurn     float64
-	StepsPerTurn float64
+	// LastTurn is what the last turn with a request cost, subagents included;
+	// LastTurnHistory the part of it its main requests paid to re-read context
+	// beyond the baseline, at cache-read price.
+	HasLastTurn     bool
+	LastTurn        float64
+	LastTurnHistory float64
+	// Background is what requests set off by background events cost since the
+	// last turn.
+	Background float64
 
-	Step         float64
-	Carry        float64
-	HistoryShare float64
-	ColdNext     float64
-	Handover     float64
-	FreshStart   float64
-	Fresh        float64
-	Reset        float64
+	ColdNext   float64
+	Handover   float64
+	FreshStart float64
+	Fresh      float64
+	Reset      float64
 
-	// HasPayback is false when the carry is zero.
+	// PaybackTurns is how many turns like the last one a reset pays back in:
+	// the reset over the last turn's history. HasPayback is false when the
+	// last turn carried no history.
 	HasPayback   bool
-	PaybackSteps int
 	PaybackTurns float64
 }
 
@@ -69,7 +77,6 @@ type Readout struct {
 func Read(s session.Session, now time.Time, lookup Lookup) Readout {
 	var first, last *session.Request
 	oneHour := false
-	groups := groupTurns(s)
 	for i := range s.Turns {
 		for j := range s.Turns[i].Requests {
 			r := &s.Turns[i].Requests[j]
@@ -108,17 +115,21 @@ func Read(s session.Session, now time.Time, lookup Lookup) Readout {
 	}
 	ro.Priced = true
 
-	var steps []int
-	for _, g := range groups {
-		if g.requests > 0 {
-			ro.HasLastTurn = true
-			ro.LastTurn = g.cost(lookup)
-		}
-		if g.main > 0 {
-			steps = append(steps, g.main)
+	turn, background := lastTurn(s)
+	if len(turn) > 0 {
+		ro.HasLastTurn = true
+		ro.LastTurn = cost(turn, lookup)
+		for _, r := range turn {
+			extra := r.Usage.Prompt() - ro.Baseline
+			if r.Sidechain || extra <= 0 {
+				continue
+			}
+			if rp, ok := lookup(r.Model); ok {
+				ro.LastTurnHistory += float64(extra) * rp.CacheRead / 1e6
+			}
 		}
 	}
-	ro.StepsPerTurn = median(steps)
+	ro.Background = cost(background, lookup)
 
 	w := p.CacheWrite5m
 	if oneHour {
@@ -127,11 +138,6 @@ func Read(s session.Session, now time.Time, lookup Lookup) Readout {
 	c, b := float64(ro.Context), float64(ro.Baseline)
 	read := func(tokens float64) float64 { return tokens * p.CacheRead / 1e6 }
 
-	ro.Step = read(c)
-	ro.Carry = read(math.Max(c-b, 0))
-	if ro.Step > 0 {
-		ro.HistoryShare = ro.Carry / ro.Step
-	}
 	ro.ColdNext = c * w / 1e6
 	note := float64(HandoverOutputTokens) * p.Output / 1e6
 	if ro.Cold {
@@ -143,75 +149,50 @@ func Read(s session.Session, now time.Time, lookup Lookup) Readout {
 	ro.Fresh = FreshRebuild * b * w / 1e6
 	ro.Reset = ro.Handover + ro.Fresh
 
-	if ro.Carry > 0 {
+	if ro.LastTurnHistory > 0 {
 		ro.HasPayback = true
-		ro.PaybackSteps = int(math.Ceil(ro.Reset / ro.Carry))
-		if ro.StepsPerTurn > 0 {
-			ro.PaybackTurns = float64(ro.PaybackSteps) / ro.StepsPerTurn
-		}
+		ro.PaybackTurns = ro.Reset / ro.LastTurnHistory
 	}
 	return ro
 }
 
-// group is a user turn: a prompt or a command that ran, with the
-// notifications and continuations that followed it.
-type group struct {
-	reqs     []session.Request
-	requests int
-	main     int
+// lastTurn returns the requests of the last turn that made one, and those that
+// background events set off after it. A prompt, or a command that ran, starts
+// a turn; a continuation joins the turn before it; a notification's requests
+// are background. A command without requests (/clear, /effort) and a prompt
+// stopped before any request change nothing.
+func lastTurn(s session.Session) (turn, background []session.Request) {
+	var current []session.Request
+	open := false
+	for _, t := range s.Turns {
+		switch t.Kind {
+		case session.TurnPrompt, session.TurnCommand:
+			if len(t.Requests) == 0 {
+				continue
+			}
+			current, background, open = append([]session.Request(nil), t.Requests...), nil, true
+		case session.TurnNotification:
+			background = append(background, t.Requests...)
+		default:
+			if open {
+				current = append(current, t.Requests...)
+			} else {
+				background = append(background, t.Requests...)
+			}
+		}
+		if t.Kind == session.TurnNotification {
+			open = false
+		}
+	}
+	return current, background
 }
 
-func (g group) cost(lookup Lookup) float64 {
+func cost(reqs []session.Request, lookup Lookup) float64 {
 	var total float64
-	for _, r := range g.reqs {
+	for _, r := range reqs {
 		if p, ok := lookup(r.Model); ok {
 			total += p.Cost(r.Usage)
 		}
 	}
 	return total
-}
-
-// groupTurns folds turns into user turns. A command without requests (/clear,
-// /effort) starts nothing and joins nothing. A notification or continuation
-// with nothing before it to join starts a group of its own, so its requests
-// are not lost.
-func groupTurns(s session.Session) []group {
-	var groups []group
-	for _, t := range s.Turns {
-		switch t.Kind {
-		case session.TurnPrompt:
-			groups = append(groups, group{})
-		case session.TurnCommand:
-			if len(t.Requests) == 0 {
-				continue
-			}
-			groups = append(groups, group{})
-		default:
-			if len(groups) == 0 {
-				groups = append(groups, group{})
-			}
-		}
-		g := &groups[len(groups)-1]
-		for _, r := range t.Requests {
-			g.reqs = append(g.reqs, r)
-			g.requests++
-			if !r.Sidechain {
-				g.main++
-			}
-		}
-	}
-	return groups
-}
-
-// median of the counts; the mean of the two middle ones when even; 0 for none.
-func median(xs []int) float64 {
-	if len(xs) == 0 {
-		return 0
-	}
-	sort.Ints(xs)
-	n := len(xs)
-	if n%2 == 1 {
-		return float64(xs[n/2])
-	}
-	return float64(xs[n/2-1]+xs[n/2]) / 2
 }

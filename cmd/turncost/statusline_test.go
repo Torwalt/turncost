@@ -50,8 +50,9 @@ func TestSegmentWarmColdAndEmpty(t *testing.T) {
 		now   time.Time
 		want  string
 	}{
-		{"warm", warm, warmNow, "450k · last turn $0.27 · step $0.090 (89% history) · reset pays in ~15 steps (<1 turn)\n"},
-		{"cold", warm, coldNow, "450k · cold: next step $3.60 · last turn $0.27\n"},
+		{"warm", warm, warmNow, "450k · last turn $0.27, $0.08 of it history · reset ≈ $1.14, pays back in ~14 turns\n"},
+		{"cold", warm, coldNow, "450k · cold: next turn starts at +$3.60 · last turn $0.27, $0.08 of it history\n"},
+		{"background after the reply", payload(t, "testdata/background.jsonl"), warmNow, "450k · last turn $0.27, $0.08 of it history · background +$0.09 · reset ≈ $1.14, pays back in ~14 turns\n"},
 		{"no main request", payload(t, "testdata/empty.jsonl"), warmNow, ""},
 		{"missing transcript", payload(t, "testdata/absent.jsonl"), warmNow, ""},
 		{"no transcript path", `{"session_id":"w1"}`, warmNow, ""},
@@ -68,22 +69,29 @@ func TestSegmentWarmColdAndEmpty(t *testing.T) {
 }
 
 func TestSegmentShapes(t *testing.T) {
-	base := signal.Readout{HasMain: true, Priced: true, Baseline: 48_000, Context: 48_000, HasLastTurn: true, LastTurn: 1.5, Step: 0.0096}
+	base := signal.Readout{HasMain: true, Priced: true, Baseline: 48_000, Context: 48_000, HasLastTurn: true, LastTurn: 1.5}
 	tests := []struct {
 		name string
 		edit func(*signal.Readout)
 		want string
 	}{
-		{"no carry", func(*signal.Readout) {}, "48k · last turn $1.50 · step $0.010"},
+		{"no history", func(*signal.Readout) {}, "48k · last turn $1.50"},
 		{"unknown model", func(r *signal.Readout) { r.Priced = false }, "48k"},
-		{"no last turn", func(r *signal.Readout) { r.HasLastTurn = false }, "48k · step $0.010"},
-		{"cold without last turn", func(r *signal.Readout) { r.Cold, r.ColdNext, r.HasLastTurn = true, 0.38, false }, "48k · cold: next step $0.38"},
+		{"no last turn", func(r *signal.Readout) { r.HasLastTurn = false }, "48k"},
+		{"background only", func(r *signal.Readout) { r.HasLastTurn, r.Background = false, 0.4 }, "48k · background +$0.40"},
+		{"cold without last turn", func(r *signal.Readout) { r.Cold, r.ColdNext, r.HasLastTurn = true, 0.38, false }, "48k · cold: next turn starts at +$0.38"},
+		{"cold hides the reset", func(r *signal.Readout) {
+			r.Cold, r.ColdNext, r.LastTurnHistory, r.HasPayback, r.Reset, r.PaybackTurns = true, 4.78, 2.47, true, 4.9, 2
+		}, "48k · cold: next turn starts at +$4.78 · last turn $1.50, $2.47 of it history"},
+		{"pays back within the turn", func(r *signal.Readout) {
+			r.LastTurnHistory, r.HasPayback, r.Reset, r.PaybackTurns = 2.47, true, 1.21, 0.49
+		}, "48k · last turn $1.50, $2.47 of it history · reset ≈ $1.21, pays back in <1 turn"},
 		{"one turn", func(r *signal.Readout) {
-			r.HasPayback, r.PaybackSteps, r.PaybackTurns, r.HistoryShare = true, 20, 1.2, 0.5
-		}, "48k · last turn $1.50 · step $0.010 (50% history) · reset pays in ~20 steps (~1 turn)"},
+			r.LastTurnHistory, r.HasPayback, r.Reset, r.PaybackTurns = 1, true, 1.2, 1.2
+		}, "48k · last turn $1.50, $1.00 of it history · reset ≈ $1.20, pays back in ~1 turn"},
 		{"several turns", func(r *signal.Readout) {
-			r.HasPayback, r.PaybackSteps, r.PaybackTurns, r.HistoryShare = true, 1, 2.5, 0.5
-		}, "48k · last turn $1.50 · step $0.010 (50% history) · reset pays in ~1 step (~3 turns)"},
+			r.LastTurnHistory, r.HasPayback, r.Reset, r.PaybackTurns = 0.4, true, 1, 2.5
+		}, "48k · last turn $1.50, $0.40 of it history · reset ≈ $1.00, pays back in ~3 turns"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -110,7 +118,7 @@ func script(t *testing.T, body string) string {
 
 func TestWrappedCommandJoinsTheSegment(t *testing.T) {
 	warm := payload(t, "testdata/warm.jsonl")
-	seg := "450k · last turn $0.27 · step $0.090 (89% history) · reset pays in ~15 steps (<1 turn)\n"
+	seg := "450k · last turn $0.27, $0.08 of it history · reset ≈ $1.14, pays back in ~14 turns\n"
 	tests := []struct {
 		name  string
 		input string
