@@ -1,0 +1,28 @@
+{
+  "units": {
+    "1.1": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:12:13+01:00",
+      "agent": "claude opus high",
+      "base": "f18376672629fb9bc3d67726dceaeffe04cd0293",
+      "commits": [
+        "011caac8597e1ec6bdb624e24526957cea0a5371 review STATUSLINE_HANDOVER: no required fixes, one optional finding"
+      ],
+      "attempts": 1,
+      "handover": "# 1.1 Review the branch against the plan\n\nReviewed d2dbc807..fcea995 against docs/plans/STATUSLINE_HANDOVER.md directly.\n\n- No required fixes; no fix plan written.\n- One optional finding (handover write/take from a subdirectory of the\n  session's launch directory) persisted in\n  docs/workbench/statusline-handover-review-fcea99564939.md (kind change, area\n  watcher, state open).\n- Summary appended under \"For the author\" in\n  docs/plans/STATUSLINE_HANDOVER_REVIEW.md.\n- just verify, just test, nix build .#default, benchpress lint, ploopy lint all\n  pass. No source or tests changed.",
+      "session_id": "5b931864-5741-4b39-99bf-84f56b7e9e9e",
+      "cost_usd": 1.1076768,
+      "harness": "claude",
+      "elapsed_s": 149,
+      "session_s": 149,
+      "tokens": {
+        "input": 32,
+        "output": 6110,
+        "reasoning": 7457,
+        "cache_read": 981284,
+        "cache_write": 79994
+      }
+    }
+  }
+}
