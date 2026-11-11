@@ -100,6 +100,33 @@ Claude Code runs the command through a shell, so the wrapped command may carry
 its own arguments and quoting. turncost never fails the statusline: on an
 error of its own it prints what it has and exits 0.
 
+## Handover notes
+
+`turncost handover` keeps the note a session leaves for the next one, for a
+handover through `/clear`:
+
+```sh
+turncost handover write [-session ID] [-dir DIR]   # note on stdin; prints its path
+turncost handover take  [-session ID] [-dir DIR]   # prints the waiting note, marks it taken
+turncost handover drop  [-dir DIR]                 # marks the waiting note dropped
+turncost handover ls    [-dir DIR]                 # the project's notes and their state
+```
+
+Notes are plain files, `<UTC time>-<session id>.md` with `key: value` header
+lines, `---` and the body, under
+`$XDG_STATE_HOME/turncost/handovers/<project>/` (default
+`~/.local/state/turncost/handovers`). Writing a note drops the project's older
+waiting notes, so at most one waits. `take` with nothing waiting prints
+`no handover waiting for <dir>` and exits 1.
+
+`-dir` defaults to the working directory; `-session` defaults to the most
+recently modified transcript of that directory's project. Two sessions open in
+the same directory at once can pick the wrong one: pass `-session`.
+
+While a note waits for the project and the session has made no request yet
+(right after `/clear`), the statusline shows
+`handover waiting since 14:02 · /takeover` instead of nothing.
+
 ## Development
 
 The dev shell is a Nix flake loaded by direnv. `just verify` runs the static

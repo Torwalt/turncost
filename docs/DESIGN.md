@@ -42,13 +42,22 @@ steps. Its reset constants are placeholders for the backtest.
 adapter parses the JSON Claude Code pipes in (`Adapter.ParseStatusline`), the
 transcript is parsed whole on every call, and nothing is kept between calls.
 
+`internal/handover` stores the notes a session leaves for the next one: one
+file per note under a project directory in `$XDG_STATE_HOME/turncost`, a header
+of `key: value` lines, `---`, the body. At most one note per project waits;
+writing drops the older ones, taking records the session that took it. The
+store treats the project as an opaque key; the adapter derives it from a
+working directory (`Adapter.ProjectKey`). The statusline shows a waiting note
+while its session has no main request yet.
+
 ## Adapters
 
 One package per harness under `internal/adapter/`, producing `session.Session`.
 Only an adapter knows its harness's files. The CLI reaches them through the
 `adapter.Adapter` interface in `internal/adapter` (default root, discover,
-find, load, and `Current`: the transcript of the current session of a
-directory); `adapter.Default()` is the one place that selects a harness.
+find, load, `Current`: the transcript of the current session of a
+directory, and `ProjectKey`); `adapter.Default()` is the one place that
+selects a harness.
 
 ### Claude Code
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Torwalt/turncost/internal/adapter"
+	"github.com/Torwalt/turncost/internal/handover"
 	"github.com/Torwalt/turncost/internal/pricing"
 	"github.com/Torwalt/turncost/internal/signal"
 )
@@ -58,26 +59,43 @@ func runWrapped(command []string, input []byte, errw io.Writer) string {
 	return strings.TrimRight(string(out), "\n")
 }
 
-// statuslineSegment is the segment for the session the statusline input names;
-// empty when the session has no main request yet or its transcript is not
-// there yet.
+// statuslineSegment is the segment for the session the statusline input names.
+// A session with no main request yet, or whose transcript is not there yet,
+// shows the handover note waiting for its project, if any, else nothing.
 func statuslineSegment(input []byte, now time.Time) (string, error) {
 	harness := adapter.Default()
 	ref, err := harness.ParseStatusline(input)
 	if err != nil {
 		return "", err
 	}
+	waiting := func() string { return waitingSegment(harness, ref.Dir) }
 	if ref.Transcript == "" {
-		return "", nil
+		return waiting(), nil
 	}
 	s, err := harness.Load(ref.Transcript)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", nil
+			return waiting(), nil
 		}
 		return "", err
 	}
-	return segment(signal.Read(s, now, pricing.Lookup)), nil
+	ro := signal.Read(s, now, pricing.Lookup)
+	if !ro.HasMain {
+		return waiting(), nil
+	}
+	return segment(ro), nil
+}
+
+// waitingSegment names the handover note waiting for the project of dir.
+func waitingSegment(harness adapter.Adapter, dir string) string {
+	if dir == "" {
+		return ""
+	}
+	n, ok, err := handover.Default().Waiting(harness.ProjectKey(dir))
+	if err != nil || !ok {
+		return ""
+	}
+	return "handover waiting since " + n.Written.Local().Format("15:04") + " · /takeover"
 }
 
 // segment formats a readout as the statusline text.

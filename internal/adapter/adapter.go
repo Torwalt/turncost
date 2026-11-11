@@ -23,6 +23,9 @@ type Adapter interface {
 	// Current returns the transcript of the current session of the working
 	// directory dir: the most recently modified one of its project.
 	Current(root, dir string) (string, error)
+	// ProjectKey names the project of the working directory dir, the same
+	// name for every session run there.
+	ProjectKey(dir string) string
 	// ParseStatusline reads the JSON the harness pipes to a statusline command
 	// and returns the session it names.
 	ParseStatusline(data []byte) (session.Ref, error)

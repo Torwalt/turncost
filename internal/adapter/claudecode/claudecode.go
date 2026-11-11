@@ -26,6 +26,7 @@ func (Adapter) Discover(root string) ([]string, error)    { return Discover(root
 func (Adapter) Find(root, id string) (string, error)      { return Find(root, id) }
 func (Adapter) Load(path string) (session.Session, error) { return Load(path) }
 func (Adapter) Current(root, dir string) (string, error)  { return Current(root, dir) }
+func (Adapter) ProjectKey(dir string) string              { return ProjectKey(dir) }
 func (Adapter) ParseStatusline(data []byte) (session.Ref, error) {
 	return ParseStatusline(data)
 }
@@ -86,6 +87,15 @@ func EncodeDir(dir string) string {
 		}
 		return '-'
 	}, dir)
+}
+
+// ProjectKey names the project of the working directory dir: its project
+// directory's name.
+func ProjectKey(dir string) string {
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	return EncodeDir(dir)
 }
 
 // Current returns the transcript of the most recently modified session in the
