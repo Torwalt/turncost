@@ -50,6 +50,11 @@ store treats the project as an opaque key; the adapter derives it from a
 working directory (`Adapter.ProjectKey`). The statusline shows a waiting note
 while its session has no main request yet.
 
+`plugins/turncost` is a Claude Code plugin (marketplace at
+`.claude-plugin/marketplace.json`) with the `handover` and `takeover` skills. They
+are generic prompts that drive `turncost handover write` and `take`; the handover
+itself is always typed by the author, never injected on `/clear`.
+
 ## Adapters
 
 One package per harness under `internal/adapter/`, producing `session.Session`.

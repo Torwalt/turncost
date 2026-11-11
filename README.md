@@ -127,6 +127,37 @@ While a note waits for the project and the session has made no request yet
 (right after `/clear`), the statusline shows
 `handover waiting since 14:02 · /takeover` instead of nothing.
 
+## Handover
+
+A plugin for Claude Code hands a session over through `/clear`, on top of the
+notes above. Put turncost on your `PATH` (see Install), then in Claude Code:
+
+```
+/plugin marketplace add Torwalt/turncost
+/plugin install turncost@turncost
+```
+
+The flow has three steps, and nothing happens on its own:
+
+1. `/handover` makes the session write a note from what it already knows: goal,
+   state with commit hashes, decisions, open questions, the next step, files to
+   read first and dead ends. It runs only `git status` and `git log` and
+   stores the note with `turncost handover write`.
+2. Type `/clear`. The statusline shows `handover waiting since 14:02 ·
+   /takeover` in the new session.
+3. `/takeover` loads the note (`turncost handover take`), reads only the files
+   it names, says where the work stands and waits. Arguments, as in
+   `/takeover carry on with the next step`, are followed as an instruction.
+
+The skills are `/turncost:handover` and `/turncost:takeover` when another
+command has the same name. They only need the `turncost` binary on `PATH`.
+Nothing is injected on `/clear` itself, because a `/clear` often starts
+something unrelated.
+
+A note belongs to a working directory, and the session that writes or takes it
+is the most recently modified transcript of that directory. Two sessions open
+in the same directory at once can confuse the two.
+
 ## Development
 
 The dev shell is a Nix flake loaded by direnv. `just verify` runs the static

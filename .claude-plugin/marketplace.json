@@ -1,0 +1,13 @@
+{
+  "name": "turncost",
+  "owner": {
+    "name": "Torwalt"
+  },
+  "plugins": [
+    {
+      "name": "turncost",
+      "source": "./plugins/turncost",
+      "description": "Hand a Claude Code session over through /clear: /handover writes a note, /takeover loads it."
+    }
+  ]
+}

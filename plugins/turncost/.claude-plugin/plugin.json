@@ -1,0 +1,9 @@
+{
+  "name": "turncost",
+  "description": "Hand a Claude Code session over through /clear: /handover writes a note, /takeover loads it. Needs the turncost binary on PATH.",
+  "author": {
+    "name": "Torwalt"
+  },
+  "homepage": "https://github.com/Torwalt/turncost",
+  "repository": "https://github.com/Torwalt/turncost"
+}

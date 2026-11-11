@@ -9,6 +9,7 @@ verify:
     go build ./...
     nixfmt --check flake.nix nix/*.nix
     python3 -m py_compile tools/commit_msg_check.py
+    find .claude-plugin plugins -name '*.json' -print0 | xargs -0 -n1 jq empty
     benchpress lint
     ploopy lint
 
