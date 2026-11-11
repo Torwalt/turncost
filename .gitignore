@@ -8,3 +8,4 @@ result-*
 .ploopy/
 __pycache__/
 bin/
+.claude/settings.local.json
