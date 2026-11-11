@@ -168,6 +168,30 @@
         "cache_read": 551058,
         "cache_write": 53689
       }
+    },
+    "4.1": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:09:43+01:00",
+      "agent": "claude sonnet high",
+      "base": "09a88e228b14a98769f47642c4182e298e10be98",
+      "commits": [
+        "dbfdf1963ca169be4a08a6a1281d999e39211276 document the statusline, handover store, cold guard and adapter interface; settle the live-watcher topic"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- One docs commit. `docs/DESIGN.md` restructured: *Model* now only the session\n  model plus pricing/signal; new sections *The readout* (B, C, TTL, step, carry,\n  groups, reset estimate with the three placeholder constants, worked example),\n  *Commands that read it* (`turncost statusline`, `turncost handover`,\n  `turncost hook prompt`), *State* (handover store as the only state, note format,\n  waiting rule, plugin), *Adapters* (interface methods) and a *Claude Code* facts\n  block (statusline, UserPromptSubmit, plugins, `/clear`, project-dir encoding).\n  *Known limits* gained the placeholder constants and the missing cleanup.\n- Workbench: `live-watcher` removed with `benchpress rm`; the handover topic is\n  trimmed to open questions and `open` (its `plan:` field went with `benchpress\n  state`); *Now* updated in `continue-or-reset-rule` and `harness-adapters`.\n  NEXT.md lost the live-watcher line through `rm`.\n- `benchpress lint` and `just verify` green. No code changed, so `just test` was\n  not run.\n\n## Landmark drift\nNone.\n\n## Deviations from the work order\n- Added open questions to the handover topic beyond the two it had (threshold\n  chosen by the plan, estimate constants, cleanup, same-directory confusion);\n  all come from the plan or the previous handover.\n- DESIGN.md says the hook/statusline facts were \"not exercised in a live session\",\n  taken from the previous handover.\n\n## What the next session must know\n- The workbench is consistent with the plan's first stage; no topic now points\n  at `docs/plans/STATUSLINE_HANDOVER.md` (the handover topic's `plan:` was\n  dropped when it went back to `open`).\n- DESIGN.md's constant names (`HandoverRequests`, `HandoverOutputTokens`,\n  `FreshRebuild`, `guardCarry`) are read from the source.\n\n## Open problems\n- None for this unit. Hook behaviour in live Claude Code is still unverified.",
+      "session_id": "662de2e5-4b44-4685-ac20-d1de20cfaf77",
+      "cost_usd": 0.2807416,
+      "harness": "claude",
+      "elapsed_s": 62,
+      "session_s": 62,
+      "tokens": {
+        "input": 22,
+        "output": 7551,
+        "reasoning": 454,
+        "cache_read": 449916,
+        "cache_write": 38914
+      }
     }
   }
 }
