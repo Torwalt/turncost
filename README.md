@@ -12,13 +12,33 @@ you can see when a reset would have paid off and, later, be told so live.
 It is an early spike. Claude Code is the first harness; others come as
 adapters.
 
+## Install
+
+With Nix, into your profile:
+
+```sh
+nix profile install github:Torwalt/turncost
+```
+
+Or as an input of your own flake, using `turncost.packages.${system}.default`:
+
+```nix
+inputs.turncost.url = "github:Torwalt/turncost";
+```
+
+Or with Go:
+
+```sh
+go install github.com/Torwalt/turncost/cmd/turncost@latest
+```
+
+From a checkout, `just build` writes `bin/turncost`.
+
 ## Use
 
 ```sh
-go build -o bin/turncost ./cmd/turncost
-
-bin/turncost sessions -n 20 -since 168h   # the most expensive sessions
-bin/turncost turns 6fd8e41f               # one session, turn by turn
+turncost sessions -n 20 -since 168h   # the most expensive sessions
+turncost turns 6fd8e41f               # one session, turn by turn
 ```
 
 `turns` prints, for each turn: its context size when it started, its cost, the

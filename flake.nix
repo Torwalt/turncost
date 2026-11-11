@@ -43,6 +43,16 @@
     in
     {
       packages = forAllSystems (system: {
+        default = nixpkgs.legacyPackages.${system}.buildGoModule {
+          pname = "turncost";
+          version = "0.0.0";
+          src = ./.;
+          # Standard library only: nothing to vendor.
+          vendorHash = null;
+          subPackages = [ "cmd/turncost" ];
+          meta.mainProgram = "turncost";
+        };
+
         opencode = nixpkgs.legacyPackages.${system}.callPackage ./nix/opencode.nix {
           inherit (nixpkgs-opencode.legacyPackages.${system}) opencode;
         };
