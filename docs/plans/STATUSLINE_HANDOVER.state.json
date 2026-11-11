@@ -48,6 +48,30 @@
         "cache_read": 281107,
         "cache_write": 31045
       }
+    },
+    "2.1": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:02:06+01:00",
+      "agent": "claude sonnet high",
+      "base": "fda0dea860e6c5e2e944825342e36025fc299e58",
+      "commits": [
+        "1f33b9d4f7d6f0afa1a59bb66337636c994c1a0a derive a live readout of a session: context, step, carry and reset payback"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- `internal/signal/readout.go`: `signal.Read(s, now, lookup) Readout`, pure. Fields:\n  `HasMain`, `Baseline`, `Context`, `Priced`, `TTL`, `LastRequest`, `Idle`, `Cold`,\n  `HasLastTurn`/`LastTurn`, `StepsPerTurn`, `Step`, `Carry`, `HistoryShare`\n  (fraction 0..1), `ColdNext`, `Handover`, `Fresh`, `Reset`,\n  `HasPayback`/`PaybackSteps`/`PaybackTurns`.\n  Constants `HandoverRequests=3`, `HandoverOutputTokens=5000`, `FreshRebuild=2`\n  sit together at the top of the file.\n- `readout_test.go` reproduces the worked example (warm: step .090, carry .0804,\n  handover .37, fresh .768, R 1.138, 15 steps, 0.75 turns, last turn 2.35; cold:\n  cold next 3.60, handover 3.88), grouping, unknown model, no main request, carry 0,\n  five-minute TTL, purity.\n- DESIGN.md gets a short paragraph on `signal.Read`.\n\n## Landmark drift\nNone.\n\n## Deviations from the work order\n- `lookup` is a parameter (`signal.Lookup`, same shape as `pricing.Lookup`) rather\n  than reading `pricing.Table` directly; callers pass `pricing.Lookup`. Tests use a\n  fixed Opus price, so they do not move with the table.\n- `Analyze`/`ttl` left alone: the session-wide TTL rule differs for a session with no\n  cache writes at all (readout: 5 min; `ttl`: 1 h), so sharing it would change `turns`.\n- An orphan notification/continuation with no earlier group starts a group (the\n  contract is silent; otherwise its requests would vanish).\n- Unknown model: `LastTurn`, `StepsPerTurn` and every dollar figure are absent;\n  `Cold`, `TTL`, `Idle`, B and C are still set (the segment prints only `C` then).\n\n## What the next session must know\n- `HistoryShare` is a fraction; the segment needs `%.0f%%` of it (89.3% → 89%).\n- When cold, `Reset`/`PaybackSteps` use the cold handover; `Step` and `Carry` are\n  unchanged by coldness.\n- `PaybackTurns` is 0 when `StepsPerTurn` is 0 (cannot happen with a main request in a\n  group; a lone orphan sidechain-only group is excluded from the median).\n- No-main-request returns the zero `Readout`; compare with `HasMain`.\n- Idle can be negative if `now` precedes the last request (clock skew); not clamped.\n\n## Open problems\nNone. `just verify` and `just test` green; tree clean.",
+      "session_id": "3af1f342-6993-4710-8387-cd01c3f433ef",
+      "cost_usd": 0.3357635,
+      "harness": "claude",
+      "elapsed_s": 92,
+      "session_s": 92,
+      "tokens": {
+        "input": 20,
+        "output": 10821,
+        "reasoning": 2425,
+        "cache_read": 416275,
+        "cache_write": 40409
+      }
     }
   }
 }
