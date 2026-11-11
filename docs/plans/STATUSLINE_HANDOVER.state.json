@@ -1,0 +1,28 @@
+{
+  "units": {
+    "1.1": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T10:59:57+01:00",
+      "agent": "claude sonnet high",
+      "base": "d2dbc807d1e9ebf5c1e6f7c68ac61291ab593257",
+      "commits": [
+        "41152b22a071a2fb0704e09d1fc3b7f254bc1e0a reach harnesses through an adapter interface that finds the current session"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- One commit: `internal/adapter/adapter.go` defines `adapter.Adapter`\n  (Name, DefaultRoot, Discover, Find, Load, Current) and `adapter.Default()`,\n  the only place that selects Claude Code. `claudecode.Adapter` (empty struct)\n  implements it by delegating to the existing package functions, which stay\n  exported. `cmd/turncost/main.go` now has no `claudecode.` reference; `loadAll`\n  takes the adapter. `sessions` and `turns` behave as before.\n- `claudecode.Current(root, dir)` returns the *path* of the newest `*.jsonl`\n  (by mtime) in `root/\u003cEncodeDir(abs dir)\u003e`; error when none. `claudecode.EncodeDir`\n  is exported for reuse. Test: encoded `.`/`/` path, two transcripts with\n  different mtimes, a newer transcript in another project and a non-jsonl file\n  that must be ignored, plus the no-transcript error.\n- DESIGN.md Adapters section updated (interface, encoding, Current caveat).\n\n## Landmark drift\nNone.\n\n## Deviations from the work order\n- `Current` returns a transcript path, not a session id (the plan only gave the\n  signature). Callers get the id from `Load(path).ID` or the file name.\n\n## What the next session must know\n- `internal/adapter` imports `claudecode` (for `Default`); `claudecode` does not\n  import `adapter`, the interface is satisfied structurally. Keep it that way\n  to avoid an import cycle.\n- Encoding is per rune (non-ASCII-alnum → `-`). For non-BMP characters Claude\n  Code (JS) may emit two dashes; unverified, not covered by the plan.\n- Handover store (a later unit) needs the same encoding but must be\n  harness-neutral: it should take the encoded name via the adapter (or call\n  `claudecode.EncodeDir` from the CLI layer), not import claudecode itself.\n- `Current` does `filepath.Abs(dir)` and does not resolve symlinks.\n\n## Open problems\nNone. `just verify` and `just test` green; tree clean.",
+      "session_id": "6e13eb3b-067c-4d46-9ddc-3e5ba731464e",
+      "cost_usd": 0.2320841,
+      "harness": "claude",
+      "elapsed_s": 44,
+      "session_s": 44,
+      "tokens": {
+        "input": 12,
+        "output": 5031,
+        "reasoning": 880,
+        "cache_read": 224461,
+        "cache_write": 37626
+      }
+    }
+  }
+}
