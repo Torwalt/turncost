@@ -144,6 +144,30 @@
         "cache_read": 250079,
         "cache_write": 31215
       }
+    },
+    "3.3": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:08:41+01:00",
+      "agent": "claude sonnet high",
+      "base": "02e7b082a5d667e49e47ad0aa5b62ef9c70bccd7",
+      "commits": [
+        "6fcea860540845e5c66c36c5e87a767b49cc4287 add turncost hook prompt: warn once before a handover re-writes a cold cache"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- `turncost hook prompt` (`cmd/turncost/hook.go`): parses the UserPromptSubmit JSON through the new\n  `Adapter.ParsePrompt` (`claudecode.ParsePrompt`), decides with `signal.Read`, prints\n  `{\"decision\":\"block\",\"reason\":…}` (no HTML escaping) or nothing; always exit 0, except an unknown\n  subcommand (exit 2 + usage).\n- Marker `$XDG_STATE_HOME/turncost/warned/\u003csession id\u003e` holds the last main request time (UTC RFC 3339).\n  A marker with a different time blocks again and is overwritten.\n- `plugins/turncost/hooks/hooks.json` registers `turncost hook prompt` on `UserPromptSubmit`.\n- `signal.Readout.FreshStart` (= B × w / 1e6) added for the \"fresh session starts at\" figure.\n- README (Handover section) and DESIGN.md mention the guard. `just verify` and `just test` green.\n- Tests: `cmd/turncost/hook_test.go` (exact reason, second send passes, new request re-blocks, warm,\n  small carry, carry at threshold, `/handoverx`, `please /handover`, `/takeover`, unreadable/absent\n  transcript, no id, path-like id, bad JSON, arguments, idle text), `ParsePrompt` test, FreshStart check.\n\n## Landmark drift\nNone.\n\n## Deviations from the work order\n- `FreshStart` added to `signal.Readout` (the plan listed no such field); `Fresh` is unchanged.\n- Sessions with an empty or path-like id never block (the id names the marker file). A marker that\n  cannot be written means no block, so the second send could never be needed.\n- Unpriced model: no block (no figures to name).\n- The prompt matching (`/handover`, `/turncost:handover`) lives in `cmd/turncost/hook.go`, not the adapter;\n  the adapter only returns the prompt as typed.\n\n## What the next session must know\n- `hooks.json` uses command `turncost hook prompt` with no matcher (UserPromptSubmit ignores matchers).\n- Hook behaviour was not run in a live Claude Code session; only the facts in the preamble were used.\n- Threshold is `guardCarry` (100,000) in `cmd/turncost/hook.go`; the test for \"at the threshold\" blocks\n  (C − B ≥ threshold).\n\n## Open problems\n- Markers in `warned/` are never cleaned up.",
+      "session_id": "de146163-36af-4558-bd48-787ea8c4b7cc",
+      "cost_usd": 0.3891358,
+      "harness": "claude",
+      "elapsed_s": 84,
+      "session_s": 84,
+      "tokens": {
+        "input": 22,
+        "output": 10242,
+        "reasoning": 1681,
+        "cache_read": 551058,
+        "cache_write": 53689
+      }
     }
   }
 }
