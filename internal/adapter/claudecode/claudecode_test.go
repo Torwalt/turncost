@@ -141,3 +141,17 @@ func TestParseStatuslineReadsTheSessionItNames(t *testing.T) {
 		t.Errorf("empty payload = %+v, %v; want the zero ref", ref, err)
 	}
 }
+
+func TestParsePromptReadsSessionAndPrompt(t *testing.T) {
+	ref, prompt, err := ParsePrompt([]byte(`{"session_id":"s1","transcript_path":"/t/s1.jsonl","cwd":"/repo","hook_event_name":"UserPromptSubmit","prompt":"/handover now"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := session.Ref{ID: "s1", Transcript: "/t/s1.jsonl", Dir: "/repo"}
+	if ref != want || prompt != "/handover now" {
+		t.Errorf("got %+v, %q; want %+v, %q", ref, prompt, want, "/handover now")
+	}
+	if _, _, err := ParsePrompt([]byte(`not json`)); err == nil {
+		t.Error("malformed payload parsed without error")
+	}
+}

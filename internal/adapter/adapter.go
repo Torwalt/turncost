@@ -29,6 +29,9 @@ type Adapter interface {
 	// ParseStatusline reads the JSON the harness pipes to a statusline command
 	// and returns the session it names.
 	ParseStatusline(data []byte) (session.Ref, error)
+	// ParsePrompt reads the JSON the harness pipes to a hook that runs when the
+	// user submits a prompt, and returns the session and the prompt as typed.
+	ParsePrompt(data []byte) (session.Ref, string, error)
 }
 
 // Default returns the adapter the CLI uses. Claude Code is the only harness so

@@ -154,6 +154,14 @@ command has the same name. They only need the `turncost` binary on `PATH`.
 Nothing is injected on `/clear` itself, because a `/clear` often starts
 something unrelated.
 
+The plugin also registers a cold guard, `turncost hook prompt`, on
+`UserPromptSubmit`. Typing `/handover` into a session whose cache has gone cold
+and whose context is at least 100,000 tokens above its start is blocked once,
+with the price: writing the note first re-writes the whole context at cache-write
+price, while a fresh session starts far cheaper. Send `/handover` again to do it
+anyway, or `/clear` and start from git. Every other prompt, and any error,
+passes silently.
+
 A note belongs to a working directory, and the session that writes or takes it
 is the most recently modified transcript of that directory. Two sessions open
 in the same directory at once can confuse the two.

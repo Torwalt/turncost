@@ -53,7 +53,11 @@ while its session has no main request yet.
 `plugins/turncost` is a Claude Code plugin (marketplace at
 `.claude-plugin/marketplace.json`) with the `handover` and `takeover` skills. They
 are generic prompts that drive `turncost handover write` and `take`; the handover
-itself is always typed by the author, never injected on `/clear`.
+itself is always typed by the author, never injected on `/clear`. The plugin's
+`UserPromptSubmit` hook, `turncost hook prompt` (`Adapter.ParsePrompt` reads its
+JSON), blocks a `/handover` typed into a cold session once; a marker per session
+and last-request time under `$XDG_STATE_HOME/turncost/warned` lets the second
+send through.
 
 ## Adapters
 

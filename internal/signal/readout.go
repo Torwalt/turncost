@@ -54,6 +54,7 @@ type Readout struct {
 	HistoryShare float64
 	ColdNext     float64
 	Handover     float64
+	FreshStart   float64
 	Fresh        float64
 	Reset        float64
 
@@ -138,6 +139,7 @@ func Read(s session.Session, now time.Time, lookup Lookup) Readout {
 	} else {
 		ro.Handover = read(c)*HandoverRequests + note
 	}
+	ro.FreshStart = b * w / 1e6
 	ro.Fresh = FreshRebuild * b * w / 1e6
 	ro.Reset = ro.Handover + ro.Fresh
 

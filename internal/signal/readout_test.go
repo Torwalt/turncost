@@ -75,6 +75,7 @@ func TestReadWorkedExampleWarm(t *testing.T) {
 	near(t, "carry", ro.Carry, 0.0804)
 	near(t, "history share", ro.HistoryShare, 0.893)
 	near(t, "handover", ro.Handover, 0.37)
+	near(t, "fresh start", ro.FreshStart, 0.384)
 	near(t, "fresh", ro.Fresh, 0.768)
 	near(t, "reset", ro.Reset, 1.138)
 	if !ro.HasPayback || ro.PaybackSteps != 15 {

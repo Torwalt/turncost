@@ -23,6 +23,7 @@ Usage:
   turncost sessions [-root DIR] [-n N] [-since DURATION]
   turncost turns [-root DIR] <session-id-prefix | path.jsonl>
   turncost statusline [-- command args…]
+  turncost hook prompt
   turncost handover write|take|drop|ls [-session ID] [-dir DIR]
 `
 
@@ -36,6 +37,8 @@ func main() {
 	case "statusline":
 		runStatusline(os.Args[2:], os.Stdin, os.Stdout, os.Stderr, time.Now())
 		return
+	case "hook":
+		os.Exit(runHook(os.Args[2:], os.Stdin, os.Stdout, os.Stderr, time.Now()))
 	case "handover":
 		os.Exit(runHandover(os.Args[2:], os.Stdin, os.Stdout, os.Stderr, time.Now()))
 	case "sessions":

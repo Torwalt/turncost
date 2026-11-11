@@ -30,6 +30,9 @@ func (Adapter) ProjectKey(dir string) string              { return ProjectKey(di
 func (Adapter) ParseStatusline(data []byte) (session.Ref, error) {
 	return ParseStatusline(data)
 }
+func (Adapter) ParsePrompt(data []byte) (session.Ref, string, error) {
+	return ParsePrompt(data)
+}
 
 func DefaultRoot() string {
 	if dir := os.Getenv("CLAUDE_CONFIG_DIR"); dir != "" {
@@ -140,6 +143,22 @@ func ParseStatusline(data []byte) (session.Ref, error) {
 		return session.Ref{}, err
 	}
 	return session.Ref{ID: in.SessionID, Transcript: in.TranscriptPath, Dir: in.Cwd}, nil
+}
+
+// ParsePrompt reads the JSON a UserPromptSubmit hook gets on stdin: the
+// session it runs in and the prompt as typed (a slash command arrives
+// unexpanded).
+func ParsePrompt(data []byte) (session.Ref, string, error) {
+	var in struct {
+		SessionID      string `json:"session_id"`
+		TranscriptPath string `json:"transcript_path"`
+		Cwd            string `json:"cwd"`
+		Prompt         string `json:"prompt"`
+	}
+	if err := json.Unmarshal(data, &in); err != nil {
+		return session.Ref{}, "", err
+	}
+	return session.Ref{ID: in.SessionID, Transcript: in.TranscriptPath, Dir: in.Cwd}, in.Prompt, nil
 }
 
 func Load(path string) (session.Session, error) {
