@@ -72,6 +72,30 @@
         "cache_read": 416275,
         "cache_write": 40409
       }
+    },
+    "2.2": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:03:53+01:00",
+      "agent": "claude sonnet high",
+      "base": "e5a6d965252980a000882950c2d280bc08c57bf9",
+      "commits": [
+        "b8b491d000dcd29173c8c00c05e8f15136c7e4c6 add turncost statusline: a live segment, optionally joined to an existing statusline"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- `turncost statusline [-- command…]` (`cmd/turncost/statusline.go`): reads the payload\n  from stdin, loads the named transcript, prints `segment(signal.Read(...))`. Segment\n  text matches the contract for warm/carry, warm/no carry, cold, unknown model, empty.\n- `session.Ref{ID, Transcript, Dir}` plus `Adapter.ParseStatusline(data) (session.Ref, error)`\n  (claudecode implements it). Ref lives in `session` because `adapter` imports\n  `claudecode`, so claudecode cannot return an `adapter` type.\n- Tests: `cmd/turncost/statusline_test.go` with hand-made `testdata/warm.jsonl`\n  (B 48k, C 450k, 1h cache, 2 prompts × 20 requests; last request 10:30:19Z) and\n  `empty.jsonl` (only `/clear`). Covers warm, cold, empty, missing transcript, bad JSON,\n  wrapped join (with/without newline, silent, failing, missing command, same stdin).\n- README section *Claude Code statusline*; DESIGN.md sentence.\n- Checked: `echo '{}' | bin/turncost statusline` exits 0; a real transcript prints sane text.\n\n## Landmark drift\nNone. The `adapter.Adapter` interface already existed (extracted earlier).\n\n## Deviations from the work order\n- Last-turn amount in the fixture is $0.27, not the plan's $2.35 (fixture is minimal);\n  the tests assert exact strings for that fixture.\n- Edge choices the contract leaves open: `k` truncates (450,999 → `450k`, as the existing\n  `tokens` helper does) and is used even above 1M (`1200k`); singular `~1 step`;\n  the parenthetical is dropped when PaybackTurns is 0; \"last turn\" is omitted when\n  there is none; non-`--` arguments print a note on stderr and are ignored.\n- An empty `transcript_path` yields an empty segment (no fallback to `Current(cwd)`).\n- Wrapped command's stderr is passed through to turncost's stderr; no timeout on it.\n\n## What the next session must know\n- `statuslineSegment` is where the waiting-handover form (`handover waiting since …`)\n  must plug in: it currently returns \"\" for missing transcript and for no main request,\n  which is exactly where that segment applies.\n- The wrapping joins on `theirs + \" · \" + seg`; multi-line output gets the segment on its\n  last line.\n- `runStatusline` takes `now`, stdin and writers, so hook/handover tests can reuse the\n  pattern. `segment()` is a pure function of `signal.Readout`.\n\n## Open problems\nNone. `just verify` and `just test` green; tree clean.",
+      "session_id": "fbd20fdc-2491-4b38-a174-17ab6e286614",
+      "cost_usd": 0.42860390000000004,
+      "harness": "claude",
+      "elapsed_s": 107,
+      "session_s": 107,
+      "tokens": {
+        "input": 24,
+        "output": 10512,
+        "reasoning": 3938,
+        "cache_read": 619919,
+        "cache_write": 55516
+      }
     }
   }
 }
