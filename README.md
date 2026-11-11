@@ -53,6 +53,53 @@ measure weight, not a bill.
 Transcripts are read from `$CLAUDE_CONFIG_DIR/projects` or
 `~/.claude/projects`; `-root` points elsewhere. Nothing leaves your machine.
 
+## Claude Code statusline
+
+`turncost statusline` reads the JSON Claude Code pipes to a statusline command
+and prints one segment about the session it names, parsing the whole
+transcript on each call (the largest real one takes about 0.14 s):
+
+```
+450k · last turn $2.35 · step $0.090 (89% history) · reset pays in ~15 steps (<1 turn)
+```
+
+That is the context, what the last user turn cost, what the next step costs at
+cache-read price and how much of it is history above the session's starting
+context, and how many steps of that carry a reset (handover note plus a fresh
+start) takes to pay back. When the cache has gone cold it shows
+`450k · cold: next step $3.60 · last turn $2.35`, the price of re-writing the
+context. Before the first request, or when the transcript is not there yet, it
+prints nothing. The figures are numbers, not advice, and the reset estimate
+rests on placeholder constants (`internal/signal`).
+
+Put turncost on your `PATH` (see Install), then in `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "turncost statusline"
+  }
+}
+```
+
+To keep a statusline you already have, pass its command after `--`. It gets
+the same JSON on stdin; its output (trailing newlines trimmed) comes first,
+then ` · ` and the segment on the last line. Its exit status is ignored.
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "turncost statusline -- ~/.claude/my-statusline.sh"
+  }
+}
+```
+
+Claude Code runs the command through a shell, so the wrapped command may carry
+its own arguments and quoting. turncost never fails the statusline: on an
+error of its own it prints what it has and exits 0.
+
 ## Development
 
 The dev shell is a Nix flake loaded by direnv. `just verify` runs the static

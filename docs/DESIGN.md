@@ -38,6 +38,9 @@ total, context at turn start, history cost, gap and cold cache.
 `signal.Read` derives the live readout of a session at a given time: context,
 step cost, carry, cold next step, and the reset estimate with its payback in
 steps. Its reset constants are placeholders for the backtest.
+`turncost statusline` formats that readout for Claude Code's statusline: the
+adapter parses the JSON Claude Code pipes in (`Adapter.ParseStatusline`), the
+transcript is parsed whole on every call, and nothing is kept between calls.
 
 ## Adapters
 

@@ -90,3 +90,11 @@ func (s Session) FirstPrompt() string {
 	}
 	return ""
 }
+
+// Ref points at a session a harness is running: where its transcript is, its
+// id and its working directory. Any field may be empty.
+type Ref struct {
+	ID         string
+	Transcript string
+	Dir        string
+}

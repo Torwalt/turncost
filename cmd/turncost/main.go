@@ -22,6 +22,7 @@ const usage = `turncost reads agent session transcripts and prices every turn.
 Usage:
   turncost sessions [-root DIR] [-n N] [-since DURATION]
   turncost turns [-root DIR] <session-id-prefix | path.jsonl>
+  turncost statusline [-- command args…]
 `
 
 func main() {
@@ -31,6 +32,9 @@ func main() {
 	}
 	var err error
 	switch os.Args[1] {
+	case "statusline":
+		runStatusline(os.Args[2:], os.Stdin, os.Stdout, os.Stderr, time.Now())
+		return
 	case "sessions":
 		err = runSessions(os.Args[2:], os.Stdout)
 	case "turns":

@@ -124,3 +124,20 @@ func TestCurrentIsTheNewestTranscriptOfTheEncodedProject(t *testing.T) {
 		t.Error("Current of a directory without transcripts succeeded, want an error")
 	}
 }
+
+func TestParseStatuslineReadsTheSessionItNames(t *testing.T) {
+	ref, err := ParseStatusline([]byte(`{"session_id":"s1","transcript_path":"/t/s1.jsonl","cwd":"/repo","model":{"id":"x"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := session.Ref{ID: "s1", Transcript: "/t/s1.jsonl", Dir: "/repo"}
+	if ref != want {
+		t.Errorf("ref = %+v, want %+v", ref, want)
+	}
+	if _, err := ParseStatusline([]byte(`not json`)); err == nil {
+		t.Error("malformed payload parsed without error")
+	}
+	if ref, err := ParseStatusline([]byte(`{}`)); err != nil || ref != (session.Ref{}) {
+		t.Errorf("empty payload = %+v, %v; want the zero ref", ref, err)
+	}
+}

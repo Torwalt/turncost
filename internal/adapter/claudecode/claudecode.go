@@ -26,6 +26,9 @@ func (Adapter) Discover(root string) ([]string, error)    { return Discover(root
 func (Adapter) Find(root, id string) (string, error)      { return Find(root, id) }
 func (Adapter) Load(path string) (session.Session, error) { return Load(path) }
 func (Adapter) Current(root, dir string) (string, error)  { return Current(root, dir) }
+func (Adapter) ParseStatusline(data []byte) (session.Ref, error) {
+	return ParseStatusline(data)
+}
 
 func DefaultRoot() string {
 	if dir := os.Getenv("CLAUDE_CONFIG_DIR"); dir != "" {
@@ -113,6 +116,20 @@ func Current(root, dir string) (string, error) {
 		return "", errors.New("no session transcript in " + project)
 	}
 	return best, nil
+}
+
+// ParseStatusline reads the JSON Claude Code pipes to a statusline command.
+// Only the session id, transcript path and working directory are used.
+func ParseStatusline(data []byte) (session.Ref, error) {
+	var in struct {
+		SessionID      string `json:"session_id"`
+		TranscriptPath string `json:"transcript_path"`
+		Cwd            string `json:"cwd"`
+	}
+	if err := json.Unmarshal(data, &in); err != nil {
+		return session.Ref{}, err
+	}
+	return session.Ref{ID: in.SessionID, Transcript: in.TranscriptPath, Dir: in.Cwd}, nil
 }
 
 func Load(path string) (session.Session, error) {

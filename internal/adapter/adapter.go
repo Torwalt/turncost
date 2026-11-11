@@ -23,6 +23,9 @@ type Adapter interface {
 	// Current returns the transcript of the current session of the working
 	// directory dir: the most recently modified one of its project.
 	Current(root, dir string) (string, error)
+	// ParseStatusline reads the JSON the harness pipes to a statusline command
+	// and returns the session it names.
+	ParseStatusline(data []byte) (session.Ref, error)
 }
 
 // Default returns the adapter the CLI uses. Claude Code is the only harness so
