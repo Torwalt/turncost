@@ -35,6 +35,9 @@ The motivating measurement (2026-11-10, the author's Claude Code transcripts
 `internal/pricing` prices a request from a hand-kept table per model.
 `internal/signal` derives per-turn figures from a session: cost, running
 total, context at turn start, history cost, gap and cold cache.
+`signal.Read` derives the live readout of a session at a given time: context,
+step cost, carry, cold next step, and the reset estimate with its payback in
+steps. Its reset constants are placeholders for the backtest.
 
 ## Adapters
 
