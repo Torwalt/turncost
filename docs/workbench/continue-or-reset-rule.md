@@ -13,8 +13,12 @@ costs 0.5$ … You could do simple (maybe even complex) calcs here to determine
 whether its worth it to continue. We may even find more such signals."
 
 **Now:** `turncost turns` prints per-turn cost, running total, context at turn
-start and history cost (`internal/signal/signal.go`, `Analyze`). Nothing turns
-these into a verdict yet.
+start and history cost (`internal/signal/signal.go`, `Analyze`).
+`signal.Read` (`internal/signal/readout.go`) derives the live readout the
+statusline shows: step, carry, history share, the cold next step and the reset
+estimate with its payback in steps and turns. It shows numbers, never a verdict,
+and its reset constants (`HandoverRequests`, `HandoverOutputTokens`,
+`FreshRebuild`) are placeholders until the backtest fits them.
 
 A first sketch of the trade, to test against the transcripts:
 
