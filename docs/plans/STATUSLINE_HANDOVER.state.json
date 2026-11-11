@@ -23,6 +23,31 @@
         "cache_read": 224461,
         "cache_write": 37626
       }
+    },
+    "1.2": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:00:34+01:00",
+      "agent": "claude sonnet high",
+      "base": "d3518cc3ee7d26808a8df27ba8adcb84f44e39b7",
+      "commits": [
+        "34d6fafd3eb996dd53a051be31a43b5b15886a08 install turncost from the flake or with go install"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- One commit: `flake.nix` gains `packages.default` (`buildGoModule`, `src = ./.`,\n  `vendorHash = null`, `subPackages = [ \"cmd/turncost\" ]`, `meta.mainProgram`).\n  README: new *Install* section (`nix profile install github:Torwalt/turncost`,\n  flake input, `go install …@latest`, `just build` from a checkout); the *Use*\n  examples now call `turncost` instead of `bin/turncost`.\n- `nix build .#default \u0026\u0026 ./result/bin/turncost` builds and prints the usage\n  text (exit 2, to stderr, as with any missing subcommand).\n\n## Landmark drift\nNone.\n\n## Deviations from the work order\n- `version = \"0.0.0\"` is a placeholder (buildGoModule requires one); not in the plan.\n- Added `meta.mainProgram` so `nix run` works.\n- Dropped the `bin/` prefix in the existing usage examples, since Install now\n  puts `turncost` on PATH.\n\n## What the next session must know\n- `src = ./.` means any new file under the repo changes the derivation hash; a\n  dirty tree needs `git add -N` for new files before `nix build` sees them.\n- The `go` directive is `1.27` in go.mod and the nixpkgs-unstable Go built it,\n  but a pin change to an older nixpkgs could break the build.\n- README does not yet mention the statusline, the plugin or the handover\n  caveat (two sessions in one directory); later units add them.\n- `go install` from `@latest` only works once the repository is public and\n  the commit is pushed; not verified here (no network use).\n\n## Open problems\nNone. `just verify` and `just test` green; tree clean.",
+      "session_id": "ccd6420e-6102-4682-a7a5-4d1e1d64d46c",
+      "cost_usd": 0.1801427,
+      "harness": "claude",
+      "elapsed_s": 37,
+      "session_s": 36,
+      "verify_s": 1,
+      "tokens": {
+        "input": 16,
+        "output": 2653,
+        "reasoning": 129,
+        "cache_read": 281107,
+        "cache_write": 31045
+      }
     }
   }
 }
