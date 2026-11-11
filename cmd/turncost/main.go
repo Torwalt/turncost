@@ -12,7 +12,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/Torwalt/turncost/internal/adapter/claudecode"
+	"github.com/Torwalt/turncost/internal/adapter"
 	"github.com/Torwalt/turncost/internal/session"
 	"github.com/Torwalt/turncost/internal/signal"
 )
@@ -46,18 +46,19 @@ func main() {
 }
 
 func runSessions(args []string, w io.Writer) error {
+	harness := adapter.Default()
 	fs := flag.NewFlagSet("sessions", flag.ContinueOnError)
-	root := fs.String("root", claudecode.DefaultRoot(), "Claude Code projects directory")
+	root := fs.String("root", harness.DefaultRoot(), "Claude Code projects directory")
 	n := fs.Int("n", 25, "sessions to list")
 	since := fs.Duration("since", 0, "only sessions active within this duration")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	paths, err := claudecode.Discover(*root)
+	paths, err := harness.Discover(*root)
 	if err != nil {
 		return err
 	}
-	sums := loadAll(paths)
+	sums := loadAll(harness, paths)
 	if *since > 0 {
 		cutoff := time.Now().Add(-*since)
 		kept := sums[:0]
@@ -89,19 +90,20 @@ func runSessions(args []string, w io.Writer) error {
 }
 
 func runTurns(args []string, w io.Writer) error {
+	harness := adapter.Default()
 	fs := flag.NewFlagSet("turns", flag.ContinueOnError)
-	root := fs.String("root", claudecode.DefaultRoot(), "Claude Code projects directory")
+	root := fs.String("root", harness.DefaultRoot(), "Claude Code projects directory")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("turns takes one session id or path")
 	}
-	path, err := claudecode.Find(*root, fs.Arg(0))
+	path, err := harness.Find(*root, fs.Arg(0))
 	if err != nil {
 		return err
 	}
-	s, err := claudecode.Load(path)
+	s, err := harness.Load(path)
 	if err != nil {
 		return err
 	}
@@ -128,7 +130,7 @@ func runTurns(args []string, w io.Writer) error {
 	return tw.Flush()
 }
 
-func loadAll(paths []string) []signal.Summary {
+func loadAll(harness adapter.Adapter, paths []string) []signal.Summary {
 	out := make([]signal.Summary, len(paths))
 	ok := make([]bool, len(paths))
 	jobs := make(chan int)
@@ -138,7 +140,7 @@ func loadAll(paths []string) []signal.Summary {
 		go func() {
 			defer wg.Done()
 			for i := range jobs {
-				s, err := claudecode.Load(paths[i])
+				s, err := harness.Load(paths[i])
 				if err != nil || len(s.Requests()) == 0 {
 					continue
 				}

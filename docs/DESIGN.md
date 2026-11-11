@@ -39,13 +39,20 @@ total, context at turn start, history cost, gap and cold cache.
 ## Adapters
 
 One package per harness under `internal/adapter/`, producing `session.Session`.
-Only an adapter knows its harness's files.
+Only an adapter knows its harness's files. The CLI reaches them through the
+`adapter.Adapter` interface in `internal/adapter` (default root, discover,
+find, load, and `Current`: the transcript of the current session of a
+directory); `adapter.Default()` is the one place that selects a harness.
 
 ### Claude Code
 
 - Transcripts: `$CLAUDE_CONFIG_DIR/projects/<project-dir>/<session-id>.jsonl`,
   default `~/.claude/projects`; subagents in
   `<session-id>/subagents/*.jsonl` beside it.
+- A project directory is named after the session's working directory with every
+  character other than an ASCII letter or digit replaced by `-`. The current
+  session of a directory is the most recently modified transcript there; two
+  sessions open in one directory at once can be confused.
 - One JSON event per line. Assistant events carry `message.usage` with
   `cache_creation.ephemeral_{5m,1h}_input_tokens`; `entrypoint` is `cli` for
   interactive use and `sdk-cli` for SDK runs such as ploopy.

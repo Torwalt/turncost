@@ -1,8 +1,10 @@
 package claudecode
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Torwalt/turncost/internal/session"
 )
@@ -79,5 +81,46 @@ func TestSessionMetadataComesFromTheFirstLineThatHasIt(t *testing.T) {
 	s := load(t)
 	if s.ID != "s1" || s.Project != "/repo" || s.Branch != "master" || s.Harness != Harness {
 		t.Errorf("metadata = %+v", s)
+	}
+}
+
+func TestCurrentIsTheNewestTranscriptOfTheEncodedProject(t *testing.T) {
+	root := t.TempDir()
+	dir := "/home/ada/repos/art-deal-flow.worktrees/capture-flow"
+	enc := "-home-ada-repos-art-deal-flow-worktrees-capture-flow"
+	if got := EncodeDir(dir); got != enc {
+		t.Fatalf("EncodeDir(%q) = %q, want %q", dir, got, enc)
+	}
+	project := filepath.Join(root, enc)
+	other := filepath.Join(root, "-home-ada-repos-art-deal-flow-worktrees-other")
+	for _, d := range []string{project, other} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now()
+	files := map[string]time.Time{
+		filepath.Join(project, "old.jsonl"):  now.Add(-2 * time.Hour),
+		filepath.Join(project, "new.jsonl"):  now.Add(-time.Hour),
+		filepath.Join(other, "newest.jsonl"): now,
+		filepath.Join(project, "notes.txt"):  now,
+	}
+	for p, mod := range files {
+		if err := os.WriteFile(p, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p, mod, mod); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := Current(root, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(project, "new.jsonl"); got != want {
+		t.Errorf("Current = %q, want %q", got, want)
+	}
+	if _, err := Current(root, "/home/ada/nowhere"); err == nil {
+		t.Error("Current of a directory without transcripts succeeded, want an error")
 	}
 }

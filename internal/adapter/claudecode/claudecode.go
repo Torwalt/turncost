@@ -17,6 +17,16 @@ import (
 
 const Harness = "claude-code"
 
+// Adapter implements adapter.Adapter for Claude Code.
+type Adapter struct{}
+
+func (Adapter) Name() string                              { return Harness }
+func (Adapter) DefaultRoot() string                       { return DefaultRoot() }
+func (Adapter) Discover(root string) ([]string, error)    { return Discover(root) }
+func (Adapter) Find(root, id string) (string, error)      { return Find(root, id) }
+func (Adapter) Load(path string) (session.Session, error) { return Load(path) }
+func (Adapter) Current(root, dir string) (string, error)  { return Current(root, dir) }
+
 func DefaultRoot() string {
 	if dir := os.Getenv("CLAUDE_CONFIG_DIR"); dir != "" {
 		return filepath.Join(dir, "projects")
@@ -61,6 +71,48 @@ func Find(root, id string) (string, error) {
 	default:
 		return "", errors.New("several sessions match " + id)
 	}
+}
+
+// EncodeDir returns the name of the project directory Claude Code uses for the
+// working directory dir: every character other than an ASCII letter or digit
+// becomes '-'.
+func EncodeDir(dir string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return '-'
+	}, dir)
+}
+
+// Current returns the transcript of the most recently modified session in the
+// project directory of dir. Two sessions open in one directory at once can
+// make it pick the wrong one.
+func Current(root, dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	project := filepath.Join(root, EncodeDir(abs))
+	matches, err := filepath.Glob(filepath.Join(project, "*.jsonl"))
+	if err != nil {
+		return "", err
+	}
+	var best string
+	var bestTime time.Time
+	for _, m := range matches {
+		info, err := os.Stat(m)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		if best == "" || info.ModTime().After(bestTime) {
+			best, bestTime = m, info.ModTime()
+		}
+	}
+	if best == "" {
+		return "", errors.New("no session transcript in " + project)
+	}
+	return best, nil
 }
 
 func Load(path string) (session.Session, error) {
