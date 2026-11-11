@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 	}
 	os.Setenv("XDG_STATE_HOME", filepath.Join(dir, "state"))
 	os.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(dir, "claude"))
+	os.Setenv("NO_COLOR", "1")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)

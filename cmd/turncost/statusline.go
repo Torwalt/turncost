@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -83,7 +82,7 @@ func statuslineSegment(input []byte, now time.Time) (string, error) {
 	if !ro.HasMain {
 		return waiting(), nil
 	}
-	return segment(ro), nil
+	return segment(ro, os.Getenv("NO_COLOR") == ""), nil
 }
 
 // waitingSegment names the handover note waiting for the project of dir.
@@ -98,42 +97,46 @@ func waitingSegment(harness adapter.Adapter, dir string) string {
 	return "handover waiting since " + n.Written.Local().Format("15:04") + " · /takeover"
 }
 
-// segment formats a readout as the statusline text.
-func segment(ro signal.Readout) string {
+// ANSI colours for the two states that ask for attention.
+const (
+	colorReset = "\x1b[0m"
+	colorNudge = "\x1b[1;33m" // bold yellow
+	colorCold  = "\x1b[36m"   // cyan
+)
+
+// segment formats a readout as the statusline text, short enough to share a
+// line with the user's own statusline: context, the last turn's cost and its
+// history, background follow-ups when any, then the cold price or the nudge.
+// color adds ANSI colour to the last two.
+func segment(ro signal.Readout, color bool) string {
 	if !ro.HasMain {
 		return ""
+	}
+	paint := func(code, text string) string {
+		if !color {
+			return text
+		}
+		return code + text + colorReset
 	}
 	parts := []string{fmt.Sprintf("%dk", ro.Context/1000)}
 	if !ro.Priced {
 		return parts[0]
 	}
-	if ro.Cold {
-		parts = append(parts, fmt.Sprintf("cold: next turn starts at +$%.2f", ro.ColdNext))
-	}
 	if ro.HasLastTurn {
-		last := fmt.Sprintf("last turn $%.2f", ro.LastTurn)
+		turn := fmt.Sprintf("turn $%.2f", ro.LastTurn)
 		if ro.LastTurnHistory >= 0.005 {
-			last += fmt.Sprintf(", $%.2f of it history", ro.LastTurnHistory)
+			turn += fmt.Sprintf(" (hist $%.2f)", ro.LastTurnHistory)
 		}
-		parts = append(parts, last)
+		parts = append(parts, turn)
 	}
 	if ro.Background >= 0.005 {
-		parts = append(parts, fmt.Sprintf("background +$%.2f", ro.Background))
+		parts = append(parts, fmt.Sprintf("bg +$%.2f", ro.Background))
 	}
-	if !ro.Cold && ro.HasPayback {
-		parts = append(parts, fmt.Sprintf("reset ≈ $%.2f, pays back in %s", ro.Reset, turnsText(ro.PaybackTurns)))
+	switch {
+	case ro.Cold:
+		parts = append(parts, paint(colorCold, fmt.Sprintf("cold +$%.2f", ro.ColdNext)))
+	case ro.ResetPays:
+		parts = append(parts, paint(colorNudge, "↻ reset pays"))
 	}
 	return strings.Join(parts, " · ")
-}
-
-// turnsText says how many turns like the last one something takes.
-func turnsText(turns float64) string {
-	if turns < 1 {
-		return "<1 turn"
-	}
-	n := int(math.Round(turns))
-	if n == 1 {
-		return "~1 turn"
-	}
-	return fmt.Sprintf("~%d turns", n)
 }

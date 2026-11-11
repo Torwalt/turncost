@@ -60,21 +60,22 @@ and prints one segment about the session it names, parsing the whole
 transcript on each call (the largest real one takes about 0.14 s):
 
 ```
-571k · last turn $3.26, $2.47 of it history · reset ≈ $1.21, pays back in <1 turn
+241k · turn $1.75 (hist $0.71)
+571k · turn $3.26 (hist $2.47) · ↻ reset pays
+597k · turn $3.26 (hist $2.47) · cold +$4.78
 ```
 
 A *turn* is your message up to the agent's reply, subagents included. The
-segment shows the context, what your last turn cost and how much of that paid
-for re-reading history above the session's starting context, what a reset
-(handover note plus a fresh start) would cost, and how many turns like the last
-one it takes to pay that back. When a finished background task or monitor made
-the agent react after its reply, that cost shows apart as
-`background +$0.40`. When the cache has gone cold it shows
-`571k · cold: next turn starts at +$4.57 · last turn …`, the price of
-re-writing the context before anything else happens. Before the first request,
-or when the transcript is not there yet, it prints nothing. The figures are
-numbers, not advice, and the reset estimate rests on placeholder constants
-(`internal/signal`).
+segment shows the context, what your last turn cost, and how much of that paid
+for re-reading history above the session's starting context. `↻ reset pays`
+(yellow) appears when that history cost at least as much as a reset would (a
+handover note plus a fresh start): if your next turn is like the last one and
+does not need this context, resetting is already cheaper. `cold +$4.78` (cyan)
+is what the next turn pays first to re-write a context whose cache has
+expired. `bg +$0.40` is what the agent spent reacting to finished background
+tasks or monitors after its reply. Before the first request, or when the
+transcript is not there yet, it prints nothing. `NO_COLOR` turns the colours
+off. The reset estimate rests on placeholder constants (`internal/signal`).
 
 Put turncost on your `PATH` (see Install), then in `~/.claude/settings.json`:
 

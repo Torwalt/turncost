@@ -17,8 +17,10 @@ start and history cost (`internal/signal/signal.go`, `Analyze`).
 `signal.Read` (`internal/signal/readout.go`) derives the live readout the
 statusline shows: the last turn's cost and its history share, background
 follow-ups apart, the cold next turn, and the reset estimate with its payback
-in turns like the last one. It shows numbers, never a verdict,
-and its reset constants (`HandoverRequests`, `HandoverOutputTokens`,
+in turns like the last one, and a nudge, `↻ reset pays`, when the last turn's
+history cost at least the reset estimate. Settled 2026-11-11: the author asked
+for a nudge "rather than just showing these numbers". The rule is plain for
+now; its reset constants (`HandoverRequests`, `HandoverOutputTokens`,
 `FreshRebuild`) are placeholders until the backtest fits them.
 
 A first sketch of the trade, to test against the transcripts:
@@ -33,6 +35,8 @@ A first sketch of the trade, to test against the transcripts:
 
 **Open:**
 
+- whether the nudge should also wait for a task boundary (a commit or push in
+  the last turn), once the backtest says it helps
 - which signals besides price per turn: cost growth rate, history share of a
   turn, turns since the last boundary event, cold-cache gaps
 - one score or several separate readouts

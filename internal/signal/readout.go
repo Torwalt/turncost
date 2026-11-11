@@ -70,6 +70,11 @@ type Readout struct {
 	// last turn carried no history.
 	HasPayback   bool
 	PaybackTurns float64
+	// ResetPays is the nudge: the last turn spent at least the reset estimate
+	// on history, so if the next turn is like it and does not need this
+	// context, resetting already pays. Never set while cold: then the next
+	// turn's re-write is the figure that matters.
+	ResetPays bool
 }
 
 // Read computes the readout of a session at time now. It is pure: same
@@ -152,6 +157,7 @@ func Read(s session.Session, now time.Time, lookup Lookup) Readout {
 	if ro.LastTurnHistory > 0 {
 		ro.HasPayback = true
 		ro.PaybackTurns = ro.Reset / ro.LastTurnHistory
+		ro.ResetPays = !ro.Cold && ro.LastTurnHistory >= ro.Reset
 	}
 	return ro
 }

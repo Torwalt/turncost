@@ -69,6 +69,10 @@ false; costs include sidechain requests, everything else uses main requests.
   `internal/signal/readout.go`. **Payback turns** = R / last turn history when
   that is positive: how many turns like the last one a reset pays back in.
   `FreshStart` = B × w / 1e6 is what a fresh session starts at.
+- **Reset pays** (the nudge): last turn history ≥ R, and not cold. If the next
+  turn is like the last and does not need this context, resetting is already
+  cheaper. Whether it needs the context is the user's call; the nudge says only
+  that the price favours a reset.
 
 Requests (API calls, one per tool round trip) are how cost accrues, but the
 readout no longer shows them: the user thinks in turns, and turn size varies
@@ -77,18 +81,20 @@ too much (1 to over 100 requests) for a per-request figure to say anything.
 Worked example (Opus 5.5, read $0.20/M, 1-hour write $8/M, output $20/M;
 B 48k, C 450k, last request 10 minutes ago, a last turn of ten requests at
 450k): last turn $0.90, history $0.804, handover $0.37, fresh $0.768,
-R $1.138, payback 1.4 turns. Idle 72 minutes instead: cold next turn $3.60,
+R $1.138, payback 1.4 turns, no nudge (fifteen such requests, history
+$1.206, would nudge). Idle 72 minutes instead: cold next turn $3.60,
 handover $3.88.
 
-The readout is numbers, not a verdict; it never says "reset now".
+The readout started as numbers only; on 2026-11-11 the author asked for a
+nudge "rather than just showing these numbers", hence *reset pays*.
 
 ## Commands that read it
 
 - `turncost statusline [-- command args…]` formats the readout as one segment
-  for Claude Code's statusline: `571k · last turn $3.26, $2.47 of it history ·
-  reset ≈ $1.21, pays back in <1 turn` warm, with ` · background +$0.40` when
-  background requests followed the turn; `571k · cold: next turn starts at
-  +$4.57 · last turn …` cold, without the reset; the context alone for an
+  for Claude Code's statusline, short enough to share a line with the user's
+  own: `241k · turn $1.75 (hist $0.71)`, then ` · bg +$0.40` when background
+  requests followed the turn, then ` · cold +$4.78` (cyan) when cold or
+  ` · ↻ reset pays` (bold yellow) on the nudge; the context alone for an
   unknown model; and
   empty before the first main request. With a command after `--` it runs it on
   the same stdin and joins its output and the segment with ` · `. It never

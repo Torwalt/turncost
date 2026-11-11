@@ -112,6 +112,29 @@ func TestReadHistoryOfALongTurnPaysBackTheReset(t *testing.T) {
 	near(t, "last turn", ro.LastTurn, 0.90)
 	near(t, "reset", ro.Reset, 1.138)
 	near(t, "payback turns", ro.PaybackTurns, 1.138/0.804)
+	if ro.ResetPays {
+		t.Error("reset pays with $0.80 of history against a $1.14 reset")
+	}
+}
+
+func TestReadResetPaysWhenTheLastTurnsHistoryCoversIt(t *testing.T) {
+	turns := []session.Turn{{Kind: session.TurnPrompt, Requests: []session.Request{main(t0, 48_000, 48_000)}}}
+	var long []session.Request
+	for i := 0; i < 15; i++ {
+		long = append(long, main(t0.Add(time.Duration(i+1)*time.Minute), 450_000, 0))
+	}
+	turns = append(turns, session.Turn{Kind: session.TurnPrompt, Requests: long})
+	s := session.Session{Turns: turns}
+
+	// Fifteen requests re-reading 402k beyond the baseline: $1.206 ≥ $1.138.
+	warm := Read(s, t0.Add(20*time.Minute), lookup)
+	near(t, "last turn history", warm.LastTurnHistory, 1.206)
+	if !warm.ResetPays {
+		t.Errorf("reset does not pay: history %.3f, reset %.3f", warm.LastTurnHistory, warm.Reset)
+	}
+	if cold := Read(s, t0.Add(2*time.Hour), lookup); cold.ResetPays {
+		t.Error("reset pays while cold; the cold price is the figure then")
+	}
 }
 
 func TestReadTurnAndBackground(t *testing.T) {
