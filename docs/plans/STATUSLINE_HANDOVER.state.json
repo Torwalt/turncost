@@ -120,6 +120,30 @@
         "cache_read": 809378,
         "cache_write": 61663
       }
+    },
+    "3.2": {
+      "status": "landed",
+      "outcome": "done",
+      "date": "2026-11-11T11:07:17+01:00",
+      "agent": "claude sonnet high",
+      "base": "6734e49a91cc4c0ca511c05ecac55d7fabeb4273",
+      "commits": [
+        "c2f95665a39cd8d19acc5c6db5951c13d403b6d4 add turncost plugin with handover and takeover skills"
+      ],
+      "attempts": 1,
+      "handover": "## What landed\n- `.claude-plugin/marketplace.json` (marketplace `turncost`, owner `Torwalt`, one plugin, source\n  `./plugins/turncost`), `plugins/turncost/.claude-plugin/plugin.json`, and skills\n  `plugins/turncost/skills/{handover,takeover}/SKILL.md`.\n- README section \"Handover\" (install, three-step flow, same-directory limit); DESIGN.md paragraph.\n- `just verify` runs `find .claude-plugin plugins -name '*.json' | xargs jq empty`.\n- `just verify` and `just test` green; `rg -i 'benchpress|ploopy|hero' plugins/` empty.\n\n## Landmark drift\nNone.\n\n## Deviations from the work order\n- \"The three JSON files\": only two exist (marketplace.json, plugin.json); the third is presumably\n  `hooks/hooks.json` of the cold-guard unit. The jq check is a `find` over both directories, so\n  it covers hooks.json automatically once added.\n- Both skills set `disable-model-invocation: true` (user-typed only; a handover is never automatic)\n  and `allowed-tools` limited to git status/log and the `turncost handover` subcommand.\n  Remove if the author wants the model to be able to invoke them.\n- plugin.json carries name, description, author, homepage, repository; no `license` (the repo has\n  no LICENSE file).\n\n## What the next session must know\n- The cold-guard hook unit must add `plugins/turncost/hooks/hooks.json` (top-level `hooks` key); the\n  plugin manifest needs no change to find it (default location).\n- Skills were not run in a live Claude Code session; the format follows the preamble's facts only.\n- `takeover` relies on `turncost handover take` defaulting `-session` to the newest transcript of\n  the cwd; after `/clear` that transcript exists (first entry is the `/clear` command).\n\n## Open problems\n- None known beyond the above: skill behaviour is untested against real Claude Code.",
+      "session_id": "2fc202ea-06ae-4a1b-9b78-c1e679ce22cf",
+      "cost_usd": 0.20433590000000001,
+      "harness": "claude",
+      "elapsed_s": 46,
+      "session_s": 45,
+      "tokens": {
+        "input": 14,
+        "output": 4768,
+        "reasoning": 676,
+        "cache_read": 250079,
+        "cache_write": 31215
+      }
     }
   }
 }
