@@ -249,8 +249,9 @@ optional layer beside the deterministic signals, never under them.
 
 - Commit and push detection is a substring match on Bash commands, so a
   heredoc that contains `git commit` counts. See the workbench.
-- Prices are hand-entered (2026-11-10) and ignore tiered pricing and batch
-  discounts.
+- Prices are hand-entered (2026-11-10; Sonnet 5.5's cache read corrected and
+  Fable 5.2 and Haiku 5.5 added 2026-11-19) and ignore tiered pricing and
+  batch discounts.
 - History cost is a lower bound: it prices extra context at the cache-read
   rate and ignores the 1-hour writes that put it there.
 - The reset constants rest on seven handovers and a week of sessions; the

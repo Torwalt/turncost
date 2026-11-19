@@ -18,11 +18,15 @@ type Price struct {
 var Table = map[string]Price{
 	"opus-5-5":   {Input: 4, Output: 20, CacheRead: 0.20, CacheWrite5m: 5, CacheWrite1h: 8},
 	"opus-5":     {Input: 5, Output: 25, CacheRead: 0.50, CacheWrite5m: 6.25, CacheWrite1h: 10},
-	"sonnet-5-5": {Input: 2, Output: 10, CacheRead: 0.20, CacheWrite5m: 2.50, CacheWrite1h: 4},
+	"sonnet-5-5": {Input: 2, Output: 10, CacheRead: 0.10, CacheWrite5m: 2.50, CacheWrite1h: 4},
 	"sonnet-5":   {Input: 2, Output: 10, CacheRead: 0.20, CacheWrite5m: 2.50, CacheWrite1h: 4},
+	"fable-5-2":  {Input: 8, Output: 40, CacheRead: 0.20, CacheWrite5m: 10, CacheWrite1h: 16},
 	"fable-5-1":  {Input: 10, Output: 50, CacheRead: 0.25, CacheWrite5m: 12.50, CacheWrite1h: 20},
 	"fable-5":    {Input: 10, Output: 50, CacheRead: 1, CacheWrite5m: 12.50, CacheWrite1h: 20},
-	"haiku-4-5":  {Input: 1, Output: 5, CacheRead: 0.10, CacheWrite5m: 1.25, CacheWrite1h: 2},
+	// Haiku 5.5 at its price for prompts up to 100,000 tokens; above that it
+	// costs five times as much, which the table does not model.
+	"haiku-5-5": {Input: 0.10, Output: 0.50, CacheRead: 0.01, CacheWrite5m: 0.125, CacheWrite1h: 0.20},
+	"haiku-4-5": {Input: 1, Output: 5, CacheRead: 0.10, CacheWrite5m: 1.25, CacheWrite1h: 2},
 }
 
 var dateSuffix = regexp.MustCompile(`-\d{8}$`)
