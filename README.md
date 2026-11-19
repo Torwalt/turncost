@@ -60,24 +60,24 @@ and prints one segment about the session it names, parsing the whole
 transcript on each call (the largest real one takes about 0.14 s):
 
 ```
-ctx 76% · turn $1.75 (hist $0.71)
-ctx 43% · turn $3.26 (hist $2.47) · ↻ reset pays
-ctx 40% · turn $3.26 (hist $2.47) · cold +$4.78
+ctx 76% · turn $1.75
+ctx 43% · turn $3.26 · ↻ handover pays
+ctx 40% · turn $3.26 · cold +$4.78
 ```
 
-A *turn* is your message up to the agent's reply, subagents included. The
-segment shows how much of the context window is left (as Claude Code reports
-it; the context in thousands of tokens, `241k`, when it does not), what your
-last turn cost, and how much of that paid
-for re-reading history above the session's starting context. `↻ reset pays`
-(yellow) appears when that history cost at least as much as a reset would (a
-handover note plus a fresh start): if your next turn is like the last one and
-does not need this context, resetting is already cheaper. `cold +$4.78` (cyan)
-is what the next turn pays first to re-write a context whose cache has
-expired. `bg +$0.40` is what the agent spent reacting to finished background
-tasks or monitors after its reply. Before the first request, or when the
+A *turn* is your message and everything it set off until your next one: the
+agent's reply, its subagents and its reactions to finished background tasks.
+The segment shows how much of the context window is left (as Claude Code
+reports it; the context in thousands of tokens, `241k`, when it does not) and
+what your last turn cost. `↻ handover pays` (yellow) appears once the session
+carries so much context beyond its start that re-reading it on the next twenty
+requests costs more than a reset (`/handover`, `/clear`, `/takeover`): whether
+the next work needs this context is your call, the price says a handover
+pays. `cold +$4.78` (cyan) is what the next turn pays first to re-write a
+context whose cache has expired. Before the first request, or when the
 transcript is not there yet, it prints nothing. `NO_COLOR` turns the colours
-off. The reset estimate rests on placeholder constants (`internal/signal`).
+off. The reset estimate and the twenty requests are fitted to recorded
+sessions (`internal/signal`).
 
 Put turncost on your `PATH` (see Install), then in `~/.claude/settings.json`:
 

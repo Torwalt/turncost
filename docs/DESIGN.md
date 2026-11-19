@@ -47,58 +47,81 @@ false; costs include sidechain requests, everything else uses main requests.
   an unknown model the readout carries C only.
 - **TTL**: one hour if any main request wrote 1-hour cache, else five minutes.
   **w**: the matching cache-write price. **Cold**: now − last main request > TTL.
-- **Turn**: the user's message up to the agent's reply. A `prompt` turn, or a
-  `command` turn that has requests, starts one; `continuation` turns after it
-  join it. A request-less command (`/clear`, `/effort`) and a prompt stopped
-  before any request change nothing. **Last turn** is the cost of the last
-  turn with a request, subagents included. **Last turn history** is what its
-  main requests paid to re-read context above the baseline:
-  Σ max(Cᵢ − B, 0) × cache-read / 1e6.
-- **Background**: the cost of requests that `notification` turns (a finished
-  background task or monitor) set off after the last turn. The agent reacts to
-  these after it has replied; they are not the user's turn, and turncost cannot
-  tell a useful reaction from a redundant one. In the author's 40 costliest
-  sessions of 2026-10-12 to 2026-11-11 they were 79 turns and 8.7% of the cost.
+- **Turn**: the user's message and everything it set off until the next one.
+  A `prompt` turn, or a `command` turn that has requests, starts one; every
+  turn after it joins it, `continuation` and `notification` turns (a finished
+  background task or monitor) alike. A request-less command (`/clear`,
+  `/effort`) and a prompt stopped before any request change nothing. **Last
+  turn** is the cost of the last turn with a request, subagents included.
+  Background follow-ups were once shown apart; on 2026-11-19 the author found
+  them irrelevant to the handover decision, and the backtest showed most of
+  them were subagent work the prompt had ordered, timed into the notification
+  turns.
+- **Carry** = max(C − B, 0) × cache-read / 1e6: what the next main request
+  pays to re-read the context beyond the baseline, and so what a reset saves
+  on each.
 - **Cold next turn** (`ColdNext`) = C × w / 1e6: what the next turn pays first
   to re-write the context.
-- **Reset estimate** R = handover + fresh. Handover is `HandoverRequests` (3)
+- **Reset estimate** R = handover + fresh. Handover is `HandoverRequests` (4)
   cache-read passes over C plus `HandoverOutputTokens` (5,000) of output; cold,
-  the first pass is a cache write. Fresh is `FreshRebuild` (2) × B × w / 1e6,
-  the new session's starting context twice over. These three constants are
-  placeholders for the backtest and live in one block in
-  `internal/signal/readout.go`. **Payback turns** = R / last turn history when
-  that is positive: how many turns like the last one a reset pays back in.
-  `FreshStart` = B × w / 1e6 is what a fresh session starts at.
-- **Reset pays** (the nudge): last turn history ≥ R, and not cold. If the next
-  turn is like the last and does not need this context, resetting is already
-  cheaper. Whether it needs the context is the user's call; the nudge says only
-  that the price favours a reset.
+  the first pass is a cache write. Fresh is `FreshRebuild` (1.2) × B × w / 1e6.
+  Fitted 2026-11-19 to the author's seven handovers of 2026-11-12 to
+  2026-11-18: they cost $0.61 to $1.16, $6.14 together, against $6.16
+  estimated. `FreshStart` = B × w / 1e6 is what a fresh session starts at.
+- **Reset pays** (the nudge, `↻ handover pays`): `RemainingRequests` (20) ×
+  carry ≥ R, and not cold. Once the session is that large it stays on. Whether
+  the next work needs this context is the user's call; the nudge says only
+  that the price favours a reset. All four constants live in one block in
+  `internal/signal/readout.go`.
+
+The nudge until 2026-11-19 was *last turn history ≥ R*: it assumed the next
+turn would be like the last and fired only when one turn's re-reads covered a
+whole reset. The backtest below found that horizon too short and the figure
+too volatile (a delegating turn carries almost none, the next can be a
+170-request implementation) and replaced it.
+
+Backtest (2026-11-19; 102 interactive sessions of 2026-11-11 to 2026-11-19 in
+both of the author's Claude Code configurations, ploopy runs excluded,
+$1,628). At every prompt, a reset there is priced in hindsight: the carry
+over every later main request (and over later cold re-writes) against the
+fitted R. This is an upper bound, since it assumes the work after it would
+not have needed the dropped context.
+
+- After a prompt at 200k or more of carry, sessions ran a median of about 40
+  more main requests and 4 to 6 more prompts.
+- The best single reset per session would have saved $123 (7.6%); subagents
+  (32 to 44% of the cost) and long single turns hold most of the rest.
+- Resetting at the first nudge: the old rule fired in 23 sessions for $61, 7
+  of them losing $2.70; the new one in 33 for $83, 6 losing $1.69. 15 or 30
+  requests instead of 20 saved $59 and $75.
+- The author's seven handovers all paid in hindsight, about $48 together;
+  the old rule had nudged before two of them.
 
 Requests (API calls, one per tool round trip) are how cost accrues, but the
-readout no longer shows them: the user thinks in turns, and turn size varies
+readout does not show them: the user thinks in turns, and turn size varies
 too much (1 to over 100 requests) for a per-request figure to say anything.
 
 Worked example (Opus 5.5, read $0.20/M, 1-hour write $8/M, output $20/M;
-B 48k, C 450k, last request 10 minutes ago, a last turn of ten requests at
-450k): last turn $0.90, history $0.804, handover $0.37, fresh $0.768,
-R $1.138, payback 1.4 turns, no nudge (fifteen such requests, history
-$1.206, would nudge). Idle 72 minutes instead: cold next turn $3.60,
-handover $3.88.
+B 48k, C 450k, last request 10 minutes ago): carry $0.0804, handover $0.46,
+fresh $0.461, R $0.921; twenty requests carry $1.61, so the nudge is on. With
+B 48k it comes on at C ≈ 235k. Idle 72 minutes instead: cold next turn $3.60,
+handover $3.97.
 
 The readout started as numbers only; on 2026-11-11 the author asked for a
-nudge "rather than just showing these numbers", hence *reset pays*.
+nudge "rather than just showing these numbers", hence *reset pays*, and on
+2026-11-19 for a bar that is easy to read with that nudge as its main signal,
+in English.
 
 ## Commands that read it
 
 - `turncost statusline [-- command args…]` formats the readout as one segment
   for Claude Code's statusline, short enough to share a line with the user's
-  own: `ctx 76% · turn $1.75 (hist $0.71)`, where `ctx` is the share of the
+  own: `ctx 76% · turn $1.75`, where `ctx` is the share of the
   context window left (`context_window.remaining_percentage`, rounded down, the
   way the rate limits beside it read; the context in thousands of tokens,
-  `241k`, when the harness does not report it), then ` · bg +$0.40` when background
-  requests followed the turn, then ` · cold +$4.78` (cyan) when cold or
-  ` · ↻ reset pays` (bold yellow) on the nudge; the context alone for an
-  unknown model; and
+  `241k`, when the harness does not report it), then ` · cold +$4.78` (cyan)
+  when cold or ` · ↻ handover pays` (bold yellow) on the nudge; the context
+  alone for an unknown model; and
   empty before the first main request. With a command after `--` it runs it on
   the same stdin and joins its output and the segment with ` · `. It never
   fails the statusline: on its own errors it prints what it has and exits 0.
@@ -230,6 +253,8 @@ optional layer beside the deterministic signals, never under them.
   discounts.
 - History cost is a lower bound: it prices extra context at the cache-read
   rate and ignores the 1-hour writes that put it there.
-- The reset estimate's constants and the guard's threshold are placeholders;
-  the backtest should fit them.
+- The reset constants rest on seven handovers and a week of sessions; the
+  guard's threshold is still a placeholder.
+- Subagent requests join the turn running at their timestamp, so a background
+  agent still working when the user sends the next prompt bills that turn.
 - Settled notes and guard markers are never cleaned up.
