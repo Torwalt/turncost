@@ -99,7 +99,8 @@ func runHandover(args []string, stdin io.Reader, w, errw io.Writer, now time.Tim
 		fmt.Fprintln(w, n.Path)
 		fmt.Fprintln(w, "next: /clear, then /takeover")
 	case "take":
-		if _, ok, err := store.Waiting(key); err != nil {
+		waiting, ok, err := store.Waiting(key)
+		if err != nil {
 			return fail(err)
 		} else if !ok {
 			return none()
@@ -107,6 +108,10 @@ func runHandover(args []string, stdin io.Reader, w, errw io.Writer, now time.Tim
 		id, err := currentSession()
 		if err != nil {
 			return fail(err)
+		}
+		if id == waiting.From {
+			fmt.Fprintln(errw, "this session wrote the waiting handover: /clear first, then /takeover")
+			return 1
 		}
 		n, err := store.Take(key, id, now)
 		if errors.Is(err, handover.ErrNoneWaiting) {

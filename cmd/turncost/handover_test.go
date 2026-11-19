@@ -114,6 +114,28 @@ func newTranscript(t *testing.T, p project, id string) string {
 	return path
 }
 
+func TestHandoverTakeRefusesTheSessionThatWroteIt(t *testing.T) {
+	p := newProject(t, "aaaaaaaa-1111")
+	handoverCmd(t, "goal: x\n", noteTime, "write", "-dir", p.dir)
+
+	// No /clear in between: the current session is still the writer.
+	out, errw, code := handoverCmd(t, "", noteTime.Add(time.Minute), "take", "-dir", p.dir)
+	if code != 1 || out != "" {
+		t.Errorf("code %d, stdout %q", code, out)
+	}
+	if want := "this session wrote the waiting handover: /clear first, then /takeover\n"; errw != want {
+		t.Errorf("stderr %q, want %q", errw, want)
+	}
+	if _, ok, _ := handover.Default().Waiting(adapter.Default().ProjectKey(p.dir)); !ok {
+		t.Error("the refused take settled the note; it must still wait")
+	}
+
+	newTranscript(t, p, "bbbbbbbb-2222")
+	if out, _, code := handoverCmd(t, "", noteTime.Add(2*time.Minute), "take", "-dir", p.dir); code != 0 || out != "goal: x\n" {
+		t.Errorf("take after /clear: code %d, stdout %q", code, out)
+	}
+}
+
 func TestHandoverTakeWithNothingWaiting(t *testing.T) {
 	p := newProject(t, "aaaaaaaa-1111")
 	out, errw, code := handoverCmd(t, "", noteTime, "take", "-dir", p.dir)

@@ -127,7 +127,9 @@ the guard's markers. Everything else is derived from transcripts on each call.
   <time>` or `dropped`), a line `---`, the body.
 - The waiting note is the newest one neither taken nor dropped; writing drops
   the older ones, so at most one waits. Taking records the new session, so the
-  cost of a real reset can be measured later.
+  cost of a real reset can be measured later. `take` refuses the session that
+  wrote the note and leaves it waiting: on 2026-11-17 a `/takeover` sent
+  without `/clear` had consumed one.
 - The store treats the project as an opaque key; the adapter derives it from a
   working directory. `-session` defaults to the adapter's current session of the
   directory: the most recently modified transcript of its project, which two

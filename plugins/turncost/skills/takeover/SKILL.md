@@ -18,7 +18,9 @@ turncost handover take
 
 It prints the waiting note and marks it taken by this session. If it prints
 `no handover waiting for …` and exits non-zero, say so in one line and stop:
-do not look for notes elsewhere and do not start any work.
+do not look for notes elsewhere and do not start any work. If it says this
+session wrote the waiting handover, tell the user to `/clear` and then
+`/takeover`, and stop.
 
 ## Orient
 
