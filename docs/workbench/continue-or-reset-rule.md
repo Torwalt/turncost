@@ -16,8 +16,11 @@ whether its worth it to continue. We may even find more such signals."
 start and history cost (`internal/signal/signal.go`, `Analyze`).
 `signal.Read` (`internal/signal/readout.go`) derives the live readout the
 statusline shows: the last turn's cost (everything up to the next prompt), the
-cold next turn, and the nudge, `↻ handover pays`, once twenty more requests of
-carry (C − B at cache-read price) cost at least the reset estimate. Settled
+cold next turn, and the nudge, `↻ handover pays, save: $0.69`, once twenty
+more requests of carry (C − B at cache-read price) cost at least the reset
+estimate; the figure is by how much. Settled 2026-11-24: the author found the
+bare nudge too binary ("pays" at one cent) and wants the saving shown, rising
+as the session goes on. Settled
 2026-11-11: the author asked for a nudge "rather than just showing these
 numbers". Settled 2026-11-19: the author wants the bar easy to read, in
 English, with the nudge as its main signal; history and background figures

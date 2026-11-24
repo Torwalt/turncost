@@ -51,9 +51,9 @@ func TestSegmentWarmColdAndEmpty(t *testing.T) {
 		now   time.Time
 		want  string
 	}{
-		{"warm", warm, warmNow, "450k · turn $0.27 · ↻ handover pays\n"},
+		{"warm", warm, warmNow, "450k · turn $0.27 · ↻ handover pays, save: $0.69\n"},
 		{"cold", warm, coldNow, "450k · turn $0.27 · cold +$3.60\n"},
-		{"background events join the turn", payload(t, "testdata/background.jsonl"), warmNow, "450k · turn $0.36 · ↻ handover pays\n"},
+		{"background events join the turn", payload(t, "testdata/background.jsonl"), warmNow, "450k · turn $0.36 · ↻ handover pays, save: $0.69\n"},
 		{"no main request", payload(t, "testdata/empty.jsonl"), warmNow, ""},
 		{"missing transcript", payload(t, "testdata/absent.jsonl"), warmNow, ""},
 		{"no transcript path", `{"session_id":"w1"}`, warmNow, ""},
@@ -79,7 +79,7 @@ func TestSegmentShapes(t *testing.T) {
 		{"turn", func(*signal.Readout) {}, "241k · turn $1.75"},
 		{"unknown model", func(r *signal.Readout) { r.Priced = false }, "241k"},
 		{"no last turn", func(r *signal.Readout) { r.HasLastTurn = false }, "241k"},
-		{"reset pays", func(r *signal.Readout) { r.ResetPays = true }, "241k · turn $1.75 · ↻ handover pays"},
+		{"reset pays", func(r *signal.Readout) { r.ResetPays, r.Saving = true, 0.42 }, "241k · turn $1.75 · ↻ handover pays, save: $0.42"},
 		{"cold", func(r *signal.Readout) { r.Cold, r.ColdNext = true, 4.78 }, "241k · turn $1.75 · cold +$4.78"},
 	}
 	for _, tc := range tests {
@@ -97,8 +97,8 @@ func TestSegmentShapes(t *testing.T) {
 }
 
 func TestSegmentColoursOnlyTheNudgeAndTheColdPrice(t *testing.T) {
-	ro := signal.Readout{HasMain: true, Priced: true, Context: 571_000, HasLastTurn: true, LastTurn: 3.26, ResetPays: true}
-	if got, want := segment(ro, fmt.Sprintf("%dk", ro.Context/1000), true), "571k · turn $3.26 · \x1b[1;33m↻ handover pays\x1b[0m"; got != want {
+	ro := signal.Readout{HasMain: true, Priced: true, Context: 571_000, HasLastTurn: true, LastTurn: 3.26, ResetPays: true, Saving: 1.37}
+	if got, want := segment(ro, fmt.Sprintf("%dk", ro.Context/1000), true), "571k · turn $3.26 · \x1b[1;33m↻ handover pays, save: $1.37\x1b[0m"; got != want {
 		t.Errorf("nudge: got %q, want %q", got, want)
 	}
 	ro.ResetPays, ro.Cold, ro.ColdNext = false, true, 4.57
@@ -114,11 +114,11 @@ func TestSegmentColoursOnlyTheNudgeAndTheColdPrice(t *testing.T) {
 func TestContextShowsTheShareLeftWhenTheHarnessReportsIt(t *testing.T) {
 	warm := payload(t, "testdata/warm.jsonl")
 	withLeft := strings.Replace(warm, "{", `{"context_window":{"remaining_percentage":74.6},`, 1)
-	if got, want := statusline(t, withLeft, warmNow), "ctx 74% · turn $0.27 · ↻ handover pays\n"; got != want {
+	if got, want := statusline(t, withLeft, warmNow), "ctx 74% · turn $0.27 · ↻ handover pays, save: $0.69\n"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 	withNull := strings.Replace(warm, "{", `{"context_window":{"remaining_percentage":null},`, 1)
-	if got, want := statusline(t, withNull, warmNow), "450k · turn $0.27 · ↻ handover pays\n"; got != want {
+	if got, want := statusline(t, withNull, warmNow), "450k · turn $0.27 · ↻ handover pays, save: $0.69\n"; got != want {
 		t.Errorf("null share: got %q, want %q", got, want)
 	}
 }
@@ -141,7 +141,7 @@ func script(t *testing.T, body string) string {
 
 func TestWrappedCommandJoinsTheSegment(t *testing.T) {
 	warm := payload(t, "testdata/warm.jsonl")
-	seg := "450k · turn $0.27 · ↻ handover pays\n"
+	seg := "450k · turn $0.27 · ↻ handover pays, save: $0.69\n"
 	tests := []struct {
 		name  string
 		input string

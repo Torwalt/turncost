@@ -68,8 +68,16 @@ false; costs include sidechain requests, everything else uses main requests.
   Fitted 2026-11-19 to the author's seven handovers of 2026-11-12 to
   2026-11-18: they cost $0.61 to $1.16, $6.14 together, against $6.16
   estimated. `FreshStart` = B × w / 1e6 is what a fresh session starts at.
-- **Reset pays** (the nudge, `↻ handover pays`): `RemainingRequests` (20) ×
-  carry ≥ R, and not cold. Once the session is that large it stays on. Whether
+- **Saving** S = `RemainingRequests` (20) × carry − R: what a reset now saves
+  over the next twenty main requests. The fresh session re-reads B and the
+  note instead of C, so each of its requests is about carry cheaper; the work
+  after the reset adds the same tokens to both sides and cancels out. S rises
+  with C: every new token is twenty more reads of carry and four more of
+  handover, so with B 48k on Opus 5.5 each 100k of context saves $0.32 more.
+  It assumes the fresh session does not need the dropped context again; what
+  it re-reads to rebuild is in R only as far as `FreshRebuild` covers it.
+- **Reset pays** (the nudge, `↻ handover pays, save: $0.69`): S ≥ 0, and not
+  cold; it shows S. Once the session is that large it stays on. Whether
   the next work needs this context is the user's call; the nudge says only
   that the price favours a reset. All four constants live in one block in
   `internal/signal/readout.go`.
@@ -103,7 +111,8 @@ too much (1 to over 100 requests) for a per-request figure to say anything.
 
 Worked example (Opus 5.5, read $0.20/M, 1-hour write $8/M, output $20/M;
 B 48k, C 450k, last request 10 minutes ago): carry $0.0804, handover $0.46,
-fresh $0.461, R $0.921; twenty requests carry $1.61, so the nudge is on. With
+fresh $0.461, R $0.921; twenty requests carry $1.61, so the nudge is on and
+saves $0.69. With
 B 48k it comes on at C ≈ 235k. Idle 72 minutes instead: cold next turn $3.60,
 handover $3.97.
 
@@ -120,7 +129,8 @@ in English.
   context window left (`context_window.remaining_percentage`, rounded down, the
   way the rate limits beside it read; the context in thousands of tokens,
   `241k`, when the harness does not report it), then ` · cold +$4.78` (cyan)
-  when cold or ` · ↻ handover pays` (bold yellow) on the nudge; the context
+  when cold or ` · ↻ handover pays, save: $0.69` (bold yellow, S) on the
+  nudge; the context
   alone for an unknown model; and
   empty before the first main request. With a command after `--` it runs it on
   the same stdin and joins its output and the segment with ` · `. It never

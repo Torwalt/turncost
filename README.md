@@ -61,7 +61,7 @@ transcript on each call (the largest real one takes about 0.14 s):
 
 ```
 ctx 76% · turn $1.75
-ctx 43% · turn $3.26 · ↻ handover pays
+ctx 43% · turn $3.26 · ↻ handover pays, save: $1.37
 ctx 40% · turn $3.26 · cold +$4.78
 ```
 
@@ -73,7 +73,9 @@ what your last turn cost. `↻ handover pays` (yellow) appears once the session
 carries so much context beyond its start that re-reading it on the next twenty
 requests costs more than a reset (`/handover`, `/clear`, `/takeover`): whether
 the next work needs this context is your call, the price says a handover
-pays. `cold +$4.78` (cyan) is what the next turn pays first to re-write a
+pays. `save: $1.37` is by how much: the re-reads of those twenty requests less
+the reset. It grows with the context, so the longer you go on, the more a
+handover saves. `cold +$4.78` (cyan) is what the next turn pays first to re-write a
 context whose cache has expired. Before the first request, or when the
 transcript is not there yet, it prints nothing. `NO_COLOR` turns the colours
 off. The reset estimate and the twenty requests are fitted to recorded

@@ -79,6 +79,7 @@ func TestReadWorkedExampleWarm(t *testing.T) {
 	near(t, "fresh", ro.Fresh, 0.4608)
 	near(t, "reset", ro.Reset, 0.9208)
 	// Twenty requests of $0.0804 carry, $1.608, cover the $0.92 reset.
+	near(t, "saving", ro.Saving, 0.6872)
 	if !ro.ResetPays {
 		t.Error("reset does not pay at 450k against a 48k baseline")
 	}
@@ -126,6 +127,23 @@ func TestReadResetPaysOnceTheCarriedContextCoversIt(t *testing.T) {
 				tc.context/1000, ro.ResetPays, tc.pays, RemainingRequests, ro.Carry*RemainingRequests, ro.Reset)
 		}
 	}
+}
+
+func TestReadSavingRisesWithTheContext(t *testing.T) {
+	// With B = 48k the saving is 3.2e-6·C − $0.7528: each 100k more context
+	// saves $0.32 more, the carry rising by twenty reads and the reset by four.
+	prev := math.Inf(-1)
+	for c := int64(48_000); c <= 1_000_000; c += 50_000 {
+		ro := Read(sessionAt(c), t0.Add(2*time.Minute), lookup)
+		if ro.Saving <= prev {
+			t.Fatalf("C = %dk: saving %.4f, not above %.4f", c/1000, ro.Saving, prev)
+		}
+		if ro.ResetPays != (ro.Saving >= 0 && c > 48_000) {
+			t.Errorf("C = %dk: reset pays = %v with saving %.4f", c/1000, ro.ResetPays, ro.Saving)
+		}
+		prev = ro.Saving
+	}
+	near(t, "saving at 1M", Read(sessionAt(1_000_000), t0.Add(2*time.Minute), lookup).Saving, 2.4472)
 }
 
 func TestReadTurnIncludesWhatItSetOff(t *testing.T) {

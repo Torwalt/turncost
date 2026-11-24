@@ -118,7 +118,8 @@ func contextText(ro signal.Readout, ref session.Ref) string {
 
 // segment formats a readout as the statusline text, short enough to share a
 // line with the user's own statusline: context (ctx, from contextText), the
-// last turn's cost, then the cold price or the nudge. color adds ANSI colour to
+// last turn's cost, then the cold price or the nudge with what the handover
+// saves. color adds ANSI colour to
 // the last two.
 func segment(ro signal.Readout, ctx string, color bool) string {
 	if !ro.HasMain {
@@ -141,7 +142,7 @@ func segment(ro signal.Readout, ctx string, color bool) string {
 	case ro.Cold:
 		parts = append(parts, paint(colorCold, fmt.Sprintf("cold +$%.2f", ro.ColdNext)))
 	case ro.ResetPays:
-		parts = append(parts, paint(colorNudge, "↻ handover pays"))
+		parts = append(parts, paint(colorNudge, fmt.Sprintf("↻ handover pays, save: $%.2f", ro.Saving)))
 	}
 	return strings.Join(parts, " · ")
 }

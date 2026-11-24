@@ -68,9 +68,14 @@ type Readout struct {
 	Fresh      float64
 	Reset      float64
 
-	// ResetPays is the nudge: RemainingRequests requests of Carry cost at
-	// least the reset. Never set while cold: then the next turn's re-write is
-	// the figure that matters.
+	// Saving is what a reset now saves over the next RemainingRequests main
+	// requests: their Carry less the reset. It rises with the context, since
+	// the carry grows by RemainingRequests reads of every new token and the
+	// reset by HandoverRequests.
+	Saving float64
+
+	// ResetPays is the nudge: Saving is not negative. Never set while cold:
+	// then the next turn's re-write is the figure that matters.
 	ResetPays bool
 }
 
@@ -140,7 +145,8 @@ func Read(s session.Session, now time.Time, lookup Lookup) Readout {
 	ro.FreshStart = b * w / 1e6
 	ro.Fresh = FreshRebuild * b * w / 1e6
 	ro.Reset = ro.Handover + ro.Fresh
-	ro.ResetPays = !ro.Cold && ro.Carry > 0 && ro.Carry*RemainingRequests >= ro.Reset
+	ro.Saving = ro.Carry*RemainingRequests - ro.Reset
+	ro.ResetPays = !ro.Cold && ro.Carry > 0 && ro.Saving >= 0
 	return ro
 }
 
